@@ -262,7 +262,7 @@ tbody td{padding:7px 12px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
     </div>
     <textarea id="csvInput" placeholder="Coller ici ou cliquer 📂 pour importer un fichier…&#10;&#10;Exemples de formats acceptés :&#10;  DUPONT;Lucas;GBA;615&#10;  Lucas;DUPONT;615;GBA&#10;  Nom,Prénom,Dept,Score TOEIC" rows="8"></textarea>
     <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
-      <button class="btn btn-primary" onclick="previewCSV()">🔍 Analyser</button>
+      <button class="btn btn-primary" id="btnAnalyser" onclick="previewCSV()">🔍 Analyser le fichier</button>
       <button class="btn btn-outline btn-sm" onclick="document.getElementById('fileIn').click()">📂 Fichier CSV</button>
       <input type="file" id="fileIn" accept=".csv,.txt" style="display:none" onchange="importFile(this)">
       <button class="btn btn-danger btn-sm" onclick="clearData()">🗑️ Effacer tout</button>
@@ -480,7 +480,7 @@ function nivToGr(n){return`Gr${n}`;}
 // IMPORT DONNÉES
 // ═══════════════════════════════════════════════════════════════════════════════
 // ── CSV state ──────────────────────────────────────────────────────────────────
-let _csvLines=[], _csvHeaders=[], _colMap={nom:-1,prenom:-1,dept:-1,score:-1};
+let _csvLines=[], _csvHeaders=[], _colMap={nom:-1,prenom:-1,dept:-1,score:-1}, _csvSep=';';
 
 function importFile(input) {
   const f=input.files[0];if(!f)return;
@@ -500,12 +500,14 @@ function previewCSV() {
   const firstLine=raw.split('\n')[0];
   const sep=firstLine.includes('\t')?'\t':firstLine.includes(';')?';':',';
 
+  _csvSep=sep;
   _csvLines=raw.split('\n').map(l=>l.trim()).filter(l=>l);
   if(_csvLines.length<2){showAlert('⚠️ Moins de 2 lignes détectées.','warn');return;}
 
   // Détecter l'en-tête : 1re ligne non-numérique
   const firstParts=_csvLines[0].split(sep).map(p=>p.trim());
-  const hasHeader=firstParts.some(p=>isNaN(Number(p))&&p.length>0&&Number(p)<10);
+  // Header détecté si au moins une cellule est non-numérique (texte)
+  const hasHeader=firstParts.some(p=>p.length>0&&isNaN(Number(p.replace(',','.'))));
   _csvHeaders=hasHeader?firstParts:firstParts.map((_,i)=>`Colonne ${i+1}`);
   const dataStart=hasHeader?1:0;
 
@@ -520,9 +522,28 @@ function previewCSV() {
   });
 
   // Si score pas trouvé par nom → chercher la colonne avec des valeurs numériques 10-990
+  // Tester sur plusieurs lignes pour plus de fiabilité
   if(_colMap.score<0&&_csvLines.length>dataStart){
+    const testLines=_csvLines.slice(dataStart,Math.min(dataStart+5,_csvLines.length));
+    const scoreCandidates={};
+    testLines.forEach(line=>{
+      line.split(sep).map(p=>p.trim()).forEach((v,i)=>{
+        const n=Number(v);
+        if(n>=10&&n<=990){scoreCandidates[i]=(scoreCandidates[i]||0)+1;}
+      });
+    });
+    // Prendre la colonne qui a le plus de scores valides
+    const best=Object.entries(scoreCandidates).sort((a,b)=>b[1]-a[1])[0];
+    if(best)_colMap.score=Number(best[0]);
+  }
+  // Si NOM pas trouvé → chercher colonne avec texte majuscules (probablement nom)
+  if(_colMap.nom<0&&_csvLines.length>dataStart){
     const sampleRow=_csvLines[dataStart].split(sep).map(p=>p.trim());
-    sampleRow.forEach((v,i)=>{const n=Number(v);if(n>=10&&n<=990)_colMap.score=i;});
+    sampleRow.forEach((v,i)=>{
+      if(_colMap.nom>=0)return;
+      if(i===_colMap.score||i===_colMap.dept)return;
+      if(v&&isNaN(Number(v))&&v===v.toUpperCase()&&v.length>1)_colMap.nom=i;
+    });
   }
 
   // Afficher le mapper
@@ -553,7 +574,7 @@ function previewCSV() {
     `${_csvLines.length} lignes détectées · séparateur "${sep==='\t'?'tabulation':sep}" · ${hasHeader?'en-tête détecté':'pas d\'en-tête'}`;
   document.getElementById('mapperPreview').innerHTML=previewRows;
   document.getElementById('colMapper').style.display='';
-
+  document.getElementById('btnAnalyser').textContent='✅ Analysé — vérifier le mapping ci-dessous';
   updateMapperPreview();
 }
 
@@ -569,8 +590,8 @@ function applyMapping() {
   const missing=Object.entries(_colMap).filter(([k,v])=>v<0).map(([k])=>k);
   if(missing.length){showAlert(`⚠️ Colonnes non définies : ${missing.join(', ')}. Assigner toutes les colonnes.`,'error');return;}
 
-  const sep=_csvLines[0].includes('\t')?'\t':_csvLines[0].includes(';')?';':',';
-  const hasHeader=_csvHeaders[0]!=='Colonne 1'||isNaN(Number(_csvLines[0].split(sep)[0]));
+  const sep=_csvSep;
+  const hasHeader=_csvHeaders.length>0&&_csvHeaders[0]!=='Colonne 1'&&isNaN(Number(_csvHeaders[0].replace(',','.')));
   const dataLines=_csvLines.slice(hasHeader?1:0);
 
   const students=[];
@@ -1365,9 +1386,12 @@ function saveDeptDay(dept) {
 
 function showAlert(msg,type='info') {
   const div=document.createElement('div');
-  div.className=`alert alert-${type}`;div.textContent=msg;
-  const main=document.querySelector('.main:not([style*="none"])');
-  if(main){main.insertBefore(div,main.firstChild);setTimeout(()=>div.remove(),4000);}
+  div.className='alert alert-'+type;
+  div.textContent=msg;
+  const all=document.querySelectorAll('.main');
+  const main=Array.from(all).find(el=>el.style.display!=='none');
+  if(main){main.insertBefore(div,main.firstChild);setTimeout(()=>div.remove(),5000);}
+  else{console.warn('[Alert]',msg);}
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
