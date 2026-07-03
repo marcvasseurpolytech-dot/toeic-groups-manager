@@ -237,14 +237,31 @@ tbody td{padding:7px 12px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
   <div class="card">
     <div class="card-title">📥 Import CSV / Coller les données</div>
     <div class="alert alert-info" style="margin-bottom:12px">
-      Coller les données ici au format : <code>NOM;PRÉNOM;DÉPARTEMENT;SCORE</code> (une ligne par étudiant, séparateur <b>;</b> ou <b>tabulation</b>). Ligne d'en-tête ignorée automatiquement.
+      Coller ou importer un CSV — n'importe quel ordre de colonnes. L'outil détecte l'en-tête et te laisse choisir quelle colonne correspond à quoi. Les noms sont automatiquement mis en MAJUSCULES.
     </div>
-    <textarea id="csvInput" placeholder="DUPONT;Lucas;GBA;615&#10;MARTIN;Chloé;MAT;780&#10;NGUYEN;Thuy;IOT;425&#10;..." rows="10"></textarea>
+    <textarea id="csvInput" placeholder="Coller ici ou cliquer 📂 pour importer un fichier…&#10;&#10;Exemples de formats acceptés :&#10;  DUPONT;Lucas;GBA;615&#10;  Lucas;DUPONT;615;GBA&#10;  Nom,Prénom,Dept,Score TOEIC" rows="8"></textarea>
     <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
-      <button class="btn btn-primary" onclick="importCSV()">📥 Importer</button>
+      <button class="btn btn-primary" onclick="previewCSV()">🔍 Analyser</button>
       <button class="btn btn-outline btn-sm" onclick="document.getElementById('fileIn').click()">📂 Fichier CSV</button>
       <input type="file" id="fileIn" accept=".csv,.txt" style="display:none" onchange="importFile(this)">
-      <button class="btn btn-danger btn-sm" onclick="clearData()">🗑️ Effacer</button>
+      <button class="btn btn-danger btn-sm" onclick="clearData()">🗑️ Effacer tout</button>
+    </div>
+  </div>
+
+  <!-- Mapping colonnes (affiché après analyse) -->
+  <div id="colMapper" style="display:none">
+    <div class="card" style="border:2px solid var(--navy)">
+      <div class="card-title">🗂️ Associer les colonnes détectées</div>
+      <div class="alert alert-warn" id="mapperInfo" style="margin-bottom:14px"></div>
+      <div id="mapperGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:16px"></div>
+      <div style="background:var(--cream2);border-radius:var(--radius);padding:10px 14px;margin-bottom:14px">
+        <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:8px">Aperçu (5 premières lignes)</div>
+        <div id="mapperPreview" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text)"></div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-primary" onclick="applyMapping()">✅ Importer avec ce mapping</button>
+        <button class="btn btn-outline btn-sm" onclick="document.getElementById('colMapper').style.display='none'">Annuler</button>
+      </div>
     </div>
   </div>
 
@@ -439,34 +456,134 @@ function nivToGr(n){return`Gr${n}`;}
 // ═══════════════════════════════════════════════════════════════════════════════
 // IMPORT DONNÉES
 // ═══════════════════════════════════════════════════════════════════════════════
-function importCSV() {
-  const raw=document.getElementById('csvInput').value.trim();
-  if(!raw){alert('Coller des données d\'abord.');return;}
-  parseAndLoad(raw);
-}
+// ── CSV state ──────────────────────────────────────────────────────────────────
+let _csvLines=[], _csvHeaders=[], _colMap={nom:-1,prenom:-1,dept:-1,score:-1};
+
 function importFile(input) {
   const f=input.files[0];if(!f)return;
   const r=new FileReader();
-  r.onload=e=>{ document.getElementById('csvInput').value=e.target.result; parseAndLoad(e.target.result); };
+  r.onload=e=>{
+    document.getElementById('csvInput').value=e.target.result;
+    previewCSV();
+  };
   r.readAsText(f,'UTF-8');
 }
-function parseAndLoad(raw) {
-  const lines=raw.split('\n').map(l=>l.trim()).filter(l=>l);
-  const students=[];
-  lines.forEach(line=>{
-    const parts=line.split(/[;\t,]/).map(p=>p.trim());
-    if(parts.length<4)return;
-    const [nom,prenom,dept,scoreRaw]=parts;
-    const score=Number(scoreRaw);
-    if(isNaN(score)||score<10||score>990)return;
-    if(nom.toLowerCase()==='nom'||nom.toLowerCase()==='name')return; // header
-    students.push({nom:nom.toUpperCase(),prenom,dept:dept.toUpperCase(),score,cecrl:getCECRL(score)});
+
+function previewCSV() {
+  const raw=document.getElementById('csvInput').value.trim();
+  if(!raw){showAlert('⚠️ Coller des données d\'abord.','warn');return;}
+
+  // Détecter le séparateur
+  const firstLine=raw.split('\n')[0];
+  const sep=firstLine.includes('\t')?'\t':firstLine.includes(';')?';':',';
+
+  _csvLines=raw.split('\n').map(l=>l.trim()).filter(l=>l);
+  if(_csvLines.length<2){showAlert('⚠️ Moins de 2 lignes détectées.','warn');return;}
+
+  // Détecter l'en-tête : 1re ligne non-numérique
+  const firstParts=_csvLines[0].split(sep).map(p=>p.trim());
+  const hasHeader=firstParts.some(p=>isNaN(Number(p))&&p.length>0&&Number(p)<10);
+  _csvHeaders=hasHeader?firstParts:firstParts.map((_,i)=>`Colonne ${i+1}`);
+  const dataStart=hasHeader?1:0;
+
+  // Auto-détection intelligente des colonnes
+  _colMap={nom:-1,prenom:-1,dept:-1,score:-1};
+  _csvHeaders.forEach((h,i)=>{
+    const hl=h.toLowerCase().replace(/[^a-z]/g,'');
+    if(/^(nom|name|lastname|familyname)$/.test(hl)&&_colMap.nom<0)          _colMap.nom=i;
+    else if(/^(prenom|firstname|prénom|given)/.test(hl)&&_colMap.prenom<0)  _colMap.prenom=i;
+    else if(/^(dept|dep|departement|departement|filiere|section)/.test(hl)&&_colMap.dept<0) _colMap.dept=i;
+    else if(/^(score|toeic|note|grade|points|result)/.test(hl)&&_colMap.score<0)  _colMap.score=i;
   });
-  if(!students.length){showAlert('⚠️ Aucun étudiant valide trouvé. Vérifier le format.','error');return;}
+
+  // Si score pas trouvé par nom → chercher la colonne avec des valeurs numériques 10-990
+  if(_colMap.score<0&&_csvLines.length>dataStart){
+    const sampleRow=_csvLines[dataStart].split(sep).map(p=>p.trim());
+    sampleRow.forEach((v,i)=>{const n=Number(v);if(n>=10&&n<=990)_colMap.score=i;});
+  }
+
+  // Afficher le mapper
+  const mapOptions=(sel)=>_csvHeaders.map((h,i)=>`<option value="${i}" ${sel===i?'selected':''}>${h} (col.${i+1})</option>`).join('');
+  const noOpt=`<option value="-1">— Non défini —</option>`;
+
+  document.getElementById('mapperGrid').innerHTML=[
+    {key:'nom',   label:'👤 NOM (sera mis en majuscules)',  required:true},
+    {key:'prenom',label:'👤 PRÉNOM',                        required:true},
+    {key:'dept',  label:'🏫 DÉPARTEMENT',                   required:true},
+    {key:'score', label:'📊 SCORE TOEIC (10–990)',          required:true},
+  ].map(f=>`
+    <div class="form-group">
+      <label style="color:${_colMap[f.key]>=0?'var(--navy)':'#c62828'}">${f.label} ${f.required?'*':''}</label>
+      <select style="border-color:${_colMap[f.key]>=0?'var(--navy)':'#e53935'}"
+        onchange="_colMap['${f.key}']=Number(this.value);updateMapperPreview()">
+        ${noOpt}${mapOptions(_colMap[f.key])}
+      </select>
+    </div>`).join('');
+
+  // Aperçu
+  const previewRows=_csvLines.slice(dataStart,dataStart+5).map(line=>{
+    const p=line.split(sep).map(x=>x.trim());
+    return p.map((v,i)=>`<span style="display:inline-block;min-width:90px;padding:1px 6px;${i>0?'border-left:1px solid var(--border)':''}">${v}</span>`).join('');
+  }).map(r=>`<div style="padding:3px 0;border-bottom:1px solid #f0f0f0">${r}</div>`).join('');
+
+  document.getElementById('mapperInfo').textContent=
+    `${_csvLines.length} lignes détectées · séparateur "${sep==='\t'?'tabulation':sep}" · ${hasHeader?'en-tête détecté':'pas d\'en-tête'}`;
+  document.getElementById('mapperPreview').innerHTML=previewRows;
+  document.getElementById('colMapper').style.display='';
+
+  updateMapperPreview();
+}
+
+function updateMapperPreview() {
+  // Mettre à jour les couleurs des selects
+  ['nom','prenom','dept','score'].forEach(k=>{
+    const sel=document.querySelector(`select[onchange*="_colMap['${k}']"]`);
+    if(sel)sel.style.borderColor=_colMap[k]>=0?'var(--navy)':'#e53935';
+  });
+}
+
+function applyMapping() {
+  const missing=Object.entries(_colMap).filter(([k,v])=>v<0).map(([k])=>k);
+  if(missing.length){showAlert(`⚠️ Colonnes non définies : ${missing.join(', ')}. Assigner toutes les colonnes.`,'error');return;}
+
+  const sep=_csvLines[0].includes('\t')?'\t':_csvLines[0].includes(';')?';':',';
+  const hasHeader=_csvHeaders[0]!=='Colonne 1'||isNaN(Number(_csvLines[0].split(sep)[0]));
+  const dataLines=_csvLines.slice(hasHeader?1:0);
+
+  const students=[];
+  const errors=[];
+  dataLines.forEach((line,li)=>{
+    const p=line.split(sep).map(x=>x.trim());
+    const nom   =(p[_colMap.nom]||'').trim();
+    const prenom=(p[_colMap.prenom]||'').trim();
+    const dept  =(p[_colMap.dept]||'').trim().toUpperCase();
+    const score =Number(p[_colMap.score]);
+    if(!nom){errors.push(`Ligne ${li+2}: nom vide`);return;}
+    if(isNaN(score)||score<10||score>990){errors.push(`Ligne ${li+2}: score invalide (${p[_colMap.score]})`);return;}
+    students.push({
+      nom:nom.toUpperCase(),   // ← Toujours en MAJUSCULES
+      prenom:prenom.charAt(0).toUpperCase()+prenom.slice(1).toLowerCase(), // ← Capitalisation prénom
+      dept,score,cecrl:getCECRL(score)
+    });
+  });
+
+  if(!students.length){showAlert('⚠️ Aucun étudiant valide importé.','error');return;}
   state.students=students.sort((a,b)=>b.score-a.score);
   state.groups=[];state.profMap={};
+  document.getElementById('colMapper').style.display='none';
   renderDataTable();
-  showAlert(`✅ ${students.length} étudiants importés avec succès.`,'success');
+  const warnMsg=errors.length?` · ${errors.length} ligne(s) ignorée(s)`:'';
+  showAlert(`✅ ${students.length} étudiants importés${warnMsg}`,'success');
+  if(errors.length)console.warn('Lignes ignorées:',errors);
+  saveState();
+}
+
+function clearData() {
+  if(!confirm('Effacer toutes les données ?'))return;
+  state.students=[];state.groups=[];state.profMap={};
+  document.getElementById('csvInput').value='';
+  document.getElementById('colMapper').style.display='none';
+  renderDataTable();
   saveState();
 }
 function clearData() {
