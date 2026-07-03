@@ -259,8 +259,18 @@ tbody td{padding:7px 12px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
   <div class="card">
     <div class="card-title">🏫 Appairements Départements → Journée</div>
     <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Associer chaque département à Lundi ou Jeudi. Aucun choix = distribué automatiquement.</p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:10px">
+      <b>Les deux jours</b> : les étudiants sont triés par score puis répartis selon le ratio — les X% meilleurs vont Lundi, les autres Jeudi. Résultat : niveaux homogènes sur les deux journées.
+    </p>
     <table class="dept-table">
-      <thead><tr><th style="text-align:left">Département</th><th>🔵 Lundi</th><th>🟢 Jeudi</th><th>— Aucun</th></tr></thead>
+      <thead><tr>
+        <th style="text-align:left">Département</th>
+        <th>🔵 Lundi</th>
+        <th>🟢 Jeudi</th>
+        <th>🔵🟢 Les deux</th>
+        <th style="width:130px">% → Lundi</th>
+        <th>— Aucun</th>
+      </tr></thead>
       <tbody id="deptBody"></tbody>
     </table>
   </div>
@@ -373,7 +383,8 @@ const state = {
   profMap: {}, // groupNum → profName (sélections manuelles)
   suivi: {}, // annee → {profName → {slotIdx → niveau}}
   amphiPlaces: {Appert:70, Chappe:50, Lebon:50},
-  deptDays: {}, // dept → 'monday'|'thursday'|null
+  deptDays: {}, // dept → 'monday'|'thursday'|'both'|'none'
+  deptRatios: {}, // dept → % vers Lundi (10-90, default 50)
   profConf: PROF_NAMES.map(name=>({
     name, gr:[false,false,false,false], nb:2,
     lundi:'Non', jeudi:'Non', booster:false
@@ -390,7 +401,7 @@ function saveState() {
   try { localStorage.setItem('toeic-groups-state', JSON.stringify({
     annee:state.annee, students:state.students, groups:state.groups,
     profMap:state.profMap, suivi:state.suivi, amphiPlaces:state.amphiPlaces,
-    deptDays:state.deptDays, profConf:state.profConf
+    deptDays:state.deptDays, deptRatios:state.deptRatios, profConf:state.profConf
   })); } catch(_) {}
 }
 
@@ -493,11 +504,23 @@ function renderConfig() {
   const db=document.getElementById('deptBody');
   db.innerHTML=DEPTS.map(d=>{
     const cur=state.deptDays[d]||'none';
+    const ratio=state.deptRatios[d]!==undefined?state.deptRatios[d]:50;
+    const isBoth=cur==='both';
     return`<tr>
       <td class="dept-name">${d}</td>
-      <td><label class="day-radio"><input type="radio" name="dept-${d}" value="monday" ${cur==='monday'?'checked':''} onchange="state.deptDays['${d}']=this.value;saveState()"> Lundi</label></td>
-      <td><label class="day-radio"><input type="radio" name="dept-${d}" value="thursday" ${cur==='thursday'?'checked':''} onchange="state.deptDays['${d}']=this.value;saveState()"> Jeudi</label></td>
-      <td><label class="day-radio"><input type="radio" name="dept-${d}" value="none" ${cur==='none'||cur===undefined?'checked':''} onchange="state.deptDays['${d}']='none';saveState()"> Aucun</label></td>
+      <td><label class="day-radio"><input type="radio" name="dept-${d}" value="monday" ${cur==='monday'?'checked':''} onchange="state.deptDays['${d}']=this.value;saveDeptDay('${d}')"> Lundi</label></td>
+      <td><label class="day-radio"><input type="radio" name="dept-${d}" value="thursday" ${cur==='thursday'?'checked':''} onchange="state.deptDays['${d}']=this.value;saveDeptDay('${d}')"> Jeudi</label></td>
+      <td><label class="day-radio"><input type="radio" name="dept-${d}" value="both" ${isBoth?'checked':''} onchange="state.deptDays['${d}']=this.value;saveDeptDay('${d}')">🔵🟢 Les deux</label></td>
+      <td>
+        <div style="display:flex;align-items:center;gap:6px;opacity:${isBoth?'1':'0.3'};pointer-events:${isBoth?'auto':'none'}">
+          <input type="range" min="10" max="90" step="5" value="${ratio}"
+            style="width:70px;accent-color:var(--navy)"
+            oninput="state.deptRatios['${d}']=Number(this.value);this.nextElementSibling.textContent=this.value+'%→Lun';saveState()"
+            ${!isBoth?'disabled':''}>
+          <span style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:var(--navy);white-space:nowrap">${ratio}%→Lun</span>
+        </div>
+      </td>
+      <td><label class="day-radio"><input type="radio" name="dept-${d}" value="none" ${cur==='none'||cur===undefined?'checked':''} onchange="state.deptDays['${d}']='none';saveDeptDay('${d}')"> Aucun</label></td>
     </tr>`;
   }).join('');
 
@@ -534,16 +557,45 @@ function renderConfig() {
 // ═══════════════════════════════════════════════════════════════════════════════
 function partitionStudents() {
   const all=state.students;
-  const monDepts=DEPTS.filter(d=>state.deptDays[d]==='monday');
-  const thuDepts=DEPTS.filter(d=>state.deptDays[d]==='thursday');
+  const monDepts =DEPTS.filter(d=>state.deptDays[d]==='monday');
+  const thuDepts =DEPTS.filter(d=>state.deptDays[d]==='thursday');
+  const bothDepts=DEPTS.filter(d=>state.deptDays[d]==='both');
+
   let monSt=all.filter(s=>monDepts.includes(s.dept));
   let thuSt=all.filter(s=>thuDepts.includes(s.dept));
-  const unassigned=all.filter(s=>!monDepts.includes(s.dept)&&!thuDepts.includes(s.dept));
-  // Distribuer les non-affectés en équilibrant
+
+  // ── Depts "Les deux jours" : répartition par ratio, tri par score ──────────
+  // Principe d'homogénéité : trier ASC par score, prendre alternativement
+  // les X% meilleurs → Lundi (groupes souvent plus forts côté Lundi)
+  // et les (100-X)% → Jeudi.
+  // Cela garantit que les deux pools ont la même distribution de niveaux.
+  bothDepts.forEach(dept=>{
+    const deptSt=all.filter(s=>s.dept===dept).sort((a,b)=>b.score-a.score);
+    if(!deptSt.length)return;
+    const ratio=(state.deptRatios[dept]!==undefined?state.deptRatios[dept]:50)/100;
+    const nMon=Math.round(deptSt.length*ratio);
+    // Pour maximiser l'homogénéité : interleave plutôt que couper en bloc
+    // → 1er va Lundi, 2e va Jeudi, 3e va Lundi… jusqu'au ratio atteint
+    let monCount=0,thuCount=0;
+    deptSt.forEach(s=>{
+      const monRatio=monCount/(monCount+thuCount+0.001);
+      if(monCount<nMon&&(monRatio<=ratio||thuCount>=deptSt.length-nMon)){
+        monSt.push(s);monCount++;
+      }else{
+        thuSt.push(s);thuCount++;
+      }
+    });
+  });
+
+  // ── Depts non affectés : distribuer automatiquement selon capacité ──────────
+  const unassigned=all.filter(s=>
+    !monDepts.includes(s.dept)&&!thuDepts.includes(s.dept)&&!bothDepts.includes(s.dept)
+  );
   unassigned.forEach(s=>{
     const mr=monSt.length/(N_MON*20),tr=thuSt.length/(N_THU*20);
     if(mr<=tr)monSt.push(s);else thuSt.push(s);
   });
+
   monSt.sort((a,b)=>b.score-a.score);
   thuSt.sort((a,b)=>b.score-a.score);
   return{monSt,thuSt};
@@ -698,7 +750,9 @@ function renderGroupes() {
   ];
 
   const byN=[0,0,0,0];groups.forEach(g=>byN[g.niveau-1]++);
-  document.getElementById('grpStats').textContent=`${groups.length} groupes · ${state.students.length} étudiants · NIV.1:${byN[0]} NIV.2:${byN[1]} NIV.3:${byN[2]} NIV.4:${byN[3]}`;
+  const bothDepts=DEPTS.filter(d=>state.deptDays[d]==='both');
+  const bothInfo=bothDepts.length?` · ${bothDepts.join('+')} sur les 2 jours`:' ';
+  document.getElementById('grpStats').textContent=`${groups.length} groupes · ${state.students.length} étudiants · NIV.1:${byN[0]} NIV.2:${byN[1]} NIV.3:${byN[2]} NIV.4:${byN[3]}${bothInfo}`;
 
   const maxSt=Math.max(...groups.map(g=>g.students.length));
 
@@ -938,6 +992,11 @@ function buildListingDay(students,label,day) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // UTILITAIRES
 // ═══════════════════════════════════════════════════════════════════════════════
+function saveDeptDay(dept) {
+  saveState();
+  renderConfig(); // re-render pour activer/désactiver le slider
+}
+
 function showAlert(msg,type='info') {
   const div=document.createElement('div');
   div.className=`alert alert-${type}`;div.textContent=msg;
