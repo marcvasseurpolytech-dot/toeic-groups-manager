@@ -185,18 +185,39 @@ tbody td{padding:7px 12px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
 /* ── ANNÉE SCOLAIRE SELECT ── */
 .annee-sel{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;background:var(--gold3);border-color:var(--gold2);color:var(--navy);padding:6px 12px;border-radius:var(--radius);cursor:pointer}
 
-/* ── PRINT ── */
-@media print{
-  .app-header,.tabs,.toolbar,.btn,.no-print{display:none!important}
-  .main{padding:0}
-  .slot-block,.listing-day,.amphi-grid{break-inside:avoid}
-}
+/* ── PRINT — voir le bloc @media print étendu plus bas ── */
 
 /* ── EMPTY STATE ── */
 .empty-state{text-align:center;padding:48px 24px;color:var(--muted)}
 .empty-state .icon{font-size:48px;margin-bottom:12px}
 .empty-state h3{font-family:'Playfair Display',serif;font-size:18px;color:var(--navy);margin-bottom:8px}
 .empty-state p{font-size:13px}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+/* ── PRINT PAYSAGE A4 ── */
+@media print {
+  @page { size: A4 landscape; margin: 8mm 6mm; }
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  .app-header,.tabs,.toolbar,.btn,.no-print,.alert { display:none!important }
+  body { background:#fff !important; font-size:11px; }
+  .main { padding:4px !important; max-width:none; }
+  /* Groupes : 4 cartes côte à côte */
+  .slot-body { display:grid !important; grid-template-columns:repeat(4,1fr) !important; gap:4px !important; padding:4px !important; }
+  .slot-block { break-inside:avoid; margin-bottom:8px; }
+  .slot-header { padding:5px 10px !important; font-size:12px !important; }
+  .grp-card-hdr { padding:5px 10px !important; font-size:10px !important; }
+  .grp-card-hdr .prof-sel { display:none !important; }
+  .grp-score-bar { font-size:8px !important; padding:2px !important; }
+  .grp-subhdr,.grp-student { font-size:9px !important; padding:2px 6px !important; }
+  /* Listings S7 */
+  .amphi-grid { grid-template-columns:repeat(3,1fr) !important; gap:6px !important; }
+  .listing-row,.listing-subhdr { font-size:9px !important; padding:3px 8px !important; }
+  .amphi-hdr { padding:6px 10px !important; }
+  /* Suivi */
+  .suivi-grid { font-size:10px !important; }
+}
 </style>
 </head>
 <body>
@@ -327,7 +348,8 @@ tbody td{padding:7px 12px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
   <div class="toolbar no-print">
     <button class="btn btn-primary" onclick="genererGroupes()">▶ Générer les 15 groupes</button>
     <div class="toolbar-sep"></div>
-    <button class="btn btn-outline btn-sm" onclick="window.print()">🖨️ Imprimer</button>
+    <button class="btn btn-outline btn-sm" onclick="exportPDF('groupes')">🖨️ PDF Paysage</button>
+    <button class="btn btn-success btn-sm" onclick="exportXLS()">📊 Export XLS</button>
     <span id="grpStats" style="margin-left:auto;font-size:12px;color:var(--muted)"></span>
   </div>
   <div id="groupesContent">
@@ -338,10 +360,11 @@ tbody td{padding:7px 12px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
 <!-- ═══ EXPORTS ═══ -->
 <div id="tab-export" class="main" style="display:none">
   <div class="toolbar no-print">
-    <button class="btn btn-primary" onclick="exporterJour('monday')">📋 Exporter Lundi</button>
-    <button class="btn btn-success" onclick="exporterJour('thursday')">📋 Exporter Jeudi</button>
+    <button class="btn btn-primary" onclick="exporterJour('monday')">📋 Export Lundi</button>
+    <button class="btn btn-success" onclick="exporterJour('thursday')">📋 Export Jeudi</button>
     <div class="toolbar-sep"></div>
-    <button class="btn btn-outline btn-sm" onclick="window.print()">🖨️ PDF / Imprimer</button>
+    <button class="btn btn-outline btn-sm" onclick="exportPDF('exports')">🖨️ PDF Paysage</button>
+    <button class="btn btn-gold btn-sm" onclick="exportXLS()">📊 XLS (Lundi+Jeudi)</button>
   </div>
   <div id="exportContent">
     <div class="empty-state"><div class="icon">📋</div><h3>Aucun export</h3><p>Générer les groupes puis cliquer sur Exporter Lundi ou Jeudi.</p></div>
@@ -1131,6 +1154,207 @@ function buildListingDay(students,label,day) {
   </div>\`;
 }
 
+
+// ══════════════════════════════════════════════════════════════════════════════
+// EXPORT PDF (paysage A4) — via window.print() avec CSS @media print
+// ══════════════════════════════════════════════════════════════════════════════
+function exportPDF(tab) {
+  // S'assurer qu'on est sur le bon onglet
+  if(tab==='groupes') document.querySelectorAll('.tab-btn')[2].click();
+  else if(tab==='exports') document.querySelectorAll('.tab-btn')[3].click();
+  // Petit délai pour le rendu
+  setTimeout(()=>window.print(), 150);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// EXPORT XLS — SheetJS · 2 onglets : Lundi + Jeudi · couleurs NIV
+// ══════════════════════════════════════════════════════════════════════════════
+function exportXLS() {
+  if(!state.groups.length){ showAlert('⚠️ Générer les groupes d\'abord.','error'); return; }
+  if(typeof XLSX==='undefined'){ showAlert('⚠️ Librairie XLS non chargée. Vérifier la connexion.','error'); return; }
+
+  const wb = XLSX.utils.book_new();
+
+  // Couleurs niveaux (ARGB format pour SheetJS)
+  const NIV_FILL = {
+    1: {patternType:'solid', fgColor:{rgb:'4527A0'}},
+    2: {patternType:'solid', fgColor:{rgb:'0D47A1'}},
+    3: {patternType:'solid', fgColor:{rgb:'1B5E20'}},
+    4: {patternType:'solid', fgColor:{rgb:'BF360C'}},
+  };
+  const NIV_LT = {
+    1:'EDE7F6', 2:'E3F2FD', 3:'E8F5E9', 4:'FBE9E7'
+  };
+  const CECRL_RGB = {C1:'4527A0',B2:'0D47A1',B1:'1B5E20',A2:'E65100',A1:'BF360C'};
+  const HDR_FILL = {patternType:'solid', fgColor:{rgb:'1A237E'}};
+  const SLOT_FILL_MON = {patternType:'solid', fgColor:{rgb:'283593'}};
+  const SLOT_FILL_JEU = {patternType:'solid', fgColor:{rgb:'1B5E20'}};
+  const whiteFont = {color:{rgb:'FFFFFF'}, bold:true, sz:11, name:'Calibri'};
+  const boldFont  = {bold:true, sz:10, name:'Calibri'};
+  const normFont  = {sz:10, name:'Calibri'};
+  const monoFont  = {bold:true, sz:10, name:'Courier New'};
+  const border = {
+    top:{style:'thin',color:{rgb:'B0BEC5'}}, bottom:{style:'thin',color:{rgb:'B0BEC5'}},
+    left:{style:'thin',color:{rgb:'B0BEC5'}}, right:{style:'thin',color:{rgb:'B0BEC5'}}
+  };
+  const thickBorder = {
+    top:{style:'medium',color:{rgb:'263238'}}, bottom:{style:'medium',color:{rgb:'263238'}},
+    left:{style:'medium',color:{rgb:'263238'}}, right:{style:'medium',color:{rgb:'263238'}}
+  };
+
+  function makeCell(v, font, fill, align, brd) {
+    const c = {v: v===undefined||v===null?'':v, t: typeof v==='number'?'n':'s'};
+    const s = {};
+    if(font)  s.font=font;
+    if(fill)  s.fill=fill;
+    if(align) s.alignment=align;
+    if(brd)   s.border=brd;
+    c.s=s;
+    return c;
+  }
+  const center = {horizontal:'center',vertical:'center',wrapText:true};
+  const left   = {horizontal:'left',  vertical:'center'};
+  const right  = {horizontal:'right', vertical:'center'};
+
+  function buildDaySheet(day, sheetName, slotFill) {
+    const mN={1:[],2:[],3:[],4:[]}, tN={1:[],2:[],3:[],4:[]};
+    state.groups.forEach(g=>{ g.day==='monday'?mN[g.niveau].push(g):tN[g.niveau].push(g); });
+    const byNiv = day==='monday'?mN:tN;
+    const slotLabels = day==='monday'
+      ? ['Lundi 14h–16h','Lundi 16h–18h']
+      : ['Jeudi 8h–10h','Jeudi 10h–12h'];
+
+    // 4 groupes côte à côte (col A-E gr1, F-J gr2, K-O gr3, P-T gr4 = 5 cols/groupe)
+    // Colonnes : N° | NOM | PRÉNOM | DEPT | SCORE | CECRL → 6 cols/groupe
+    // 4 groupes × 6 = 24 colonnes + 3 séparateurs = 27 cols
+    const CPG=6, GPSlot=4;
+    const ws = {};
+    const merges = [];
+    const colWidths = [];
+    // Largeurs : N°=4, NOM=16, PRÉNOM=14, DEPT=6, SCORE=7, CECRL=6 → répétées 4×
+    for(let g=0;g<GPSlot;g++){
+      colWidths.push({wch:4},{wch:16},{wch:14},{wch:6},{wch:7},{wch:6});
+    }
+    ws['!cols'] = colWidths;
+
+    const MAX_ROW = 200;
+    // Initialiser toutes les cellules vides
+    for(let r=0;r<MAX_ROW;r++) for(let c=0;c<CPG*GPSlot;c++) {
+      const addr = XLSX.utils.encode_cell({r,c});
+      ws[addr] = makeCell('',normFont,null,left,null);
+    }
+
+    function setCell(r,c,v,font,fill,align,brd){
+      ws[XLSX.utils.encode_cell({r,c})] = makeCell(v,font,fill,align,brd);
+    }
+    function mergeRange(rs,cs,re,ce){
+      merges.push({s:{r:rs,c:cs},e:{r:re,c:ce}});
+    }
+
+    let row=0;
+
+    // ── Titre de la journée ────────────────────────────────────────────────────
+    mergeRange(row,0,row,CPG*GPSlot-1);
+    setCell(row,0,`GROUPES TOEIC — ${sheetName.toUpperCase()} — ${state.annee} — ${state.groups.filter(g=>g.day===day).reduce((a,g)=>a+g.students.length,0)} étudiants`,
+      {color:{rgb:'FFFFFF'},bold:true,sz:14,name:'Calibri'},
+      {patternType:'solid',fgColor:{rgb:'1A237E'}}, center, thickBorder);
+    row++;
+
+    // ── Blocs par créneau ─────────────────────────────────────────────────────
+    slotLabels.forEach((slotLabel,si)=>{
+      const slotGrps=[1,2,3,4].map(niv=>byNiv[niv][si]||null);
+
+      // Header créneau (merge toute la largeur)
+      mergeRange(row,0,row,CPG*GPSlot-1);
+      setCell(row,0,`⏰  ${slotLabel}`,
+        whiteFont, slotFill, center, thickBorder);
+      row++;
+
+      // En-têtes groupes (merge 6 cols chacun)
+      slotGrps.forEach((g,pos)=>{
+        const gc=pos*CPG;
+        if(g){
+          const prof=state.profMap[g.num]||'';
+          const avg=g.students.length?Math.round(g.students.reduce((a,s)=>a+s.score,0)/g.students.length):0;
+          const cecrlLabel=grpCECRL(g);
+          mergeRange(row,gc,row,gc+CPG-1);
+          setCell(row,gc,`${cecrlLabel} · Gr${g.niveau}${prof?' · '+prof:''} · moy.${avg} · ${g.students.length} ét.`,
+            whiteFont, NIV_FILL[g.niveau], center, thickBorder);
+        } else {
+          mergeRange(row,gc,row,gc+CPG-1);
+          setCell(row,gc,'—',{color:{rgb:'90A4AE'},sz:10,name:'Calibri'},{patternType:'solid',fgColor:{rgb:'ECEFF1'}},center,border);
+        }
+      });
+      row++;
+
+      // Scores
+      slotGrps.forEach((g,pos)=>{
+        const gc=pos*CPG;
+        if(g&&g.students.length){
+          const hi=g.students[0].score, lo=g.students[g.students.length-1].score;
+          mergeRange(row,gc,row,gc+CPG-1);
+          setCell(row,gc,`${lo} – ${hi} pts`,
+            {color:{rgb:'FFFFFF'},bold:true,sz:9,name:'Calibri'},
+            {patternType:'solid',fgColor:{rgb:NIV_FILL[g.niveau].fgColor.rgb.replace('#','')}},
+            center, border);
+        } else {
+          mergeRange(row,gc,row,gc+CPG-1);
+          setCell(row,gc,'',normFont,{patternType:'solid',fgColor:{rgb:'ECEFF1'}},center,border);
+        }
+      });
+      row++;
+
+      // Sous-en-têtes colonnes
+      slotGrps.forEach((g,pos)=>{
+        const gc=pos*CPG;
+        const hdrFill=g?{patternType:'solid',fgColor:{rgb:NIV_LT[g.niveau]}}:{patternType:'solid',fgColor:{rgb:'ECEFF1'}};
+        ['N°','NOM','PRÉNOM','DEPT','SCORE','CECRL'].forEach((h,ci)=>{
+          setCell(row,gc+ci,h,{color:{rgb:'546E7A'},bold:true,sz:8,name:'Calibri'},hdrFill,center,border);
+        });
+      });
+      row++;
+
+      // Étudiants
+      const maxSt=Math.max(...slotGrps.map(g=>g?g.students.length:0));
+      for(let i=0;i<maxSt;i++){
+        slotGrps.forEach((g,pos)=>{
+          const gc=pos*CPG;
+          const alt=i%2===1;
+          if(g&&i<g.students.length){
+            const s=g.students[i];
+            const rowFill=alt?{patternType:'solid',fgColor:{rgb:NIV_LT[g.niveau]}}:null;
+            const ccRgb=CECRL_RGB[s.cecrl]||'546E7A';
+            setCell(row,gc,   i+1,          {bold:true,sz:9,color:{rgb:'546E7A'},name:'Calibri'},rowFill,center,border);
+            setCell(row,gc+1, s.nom,         {bold:true,sz:10,name:'Calibri'},rowFill,left,border);
+            setCell(row,gc+2, s.prenom,      {sz:10,name:'Calibri'},rowFill,left,border);
+            setCell(row,gc+3, s.dept,        {sz:9,color:{rgb:'546E7A'},name:'Calibri'},rowFill,center,border);
+            setCell(row,gc+4, s.score,       {bold:true,sz:10,name:'Calibri'},rowFill,right,border);
+            setCell(row,gc+5, s.cecrl,       {bold:true,sz:9,color:{rgb:'FFFFFF'},name:'Calibri'},{patternType:'solid',fgColor:{rgb:ccRgb}},center,border);
+          } else {
+            for(let ci=0;ci<CPG;ci++) setCell(row,gc+ci,'',normFont,alt?{patternType:'solid',fgColor:{rgb:'F5F5F5'}}:null,left,border);
+          }
+        });
+        row++;
+      }
+      row++; // séparateur
+    });
+
+    ws['!ref'] = XLSX.utils.encode_range({s:{r:0,c:0},e:{r:row,c:CPG*GPSlot-1}});
+    ws['!merges'] = merges;
+    return ws;
+  }
+
+  const wsLundi = buildDaySheet('monday','Lundi', {patternType:'solid',fgColor:{rgb:'283593'}});
+  const wsJeudi = buildDaySheet('thursday','Jeudi',{patternType:'solid',fgColor:{rgb:'1B5E20'}});
+
+  XLSX.utils.book_append_sheet(wb, wsLundi, '🔵 Lundi');
+  XLSX.utils.book_append_sheet(wb, wsJeudi, '🟢 Jeudi');
+
+  const fname=`Groupes_TOEIC_${state.annee}_${new Date().toISOString().slice(0,10)}.xlsx`;
+  XLSX.writeFile(wb, fname, {bookType:'xlsx', type:'binary', cellStyles:true});
+  showAlert(`✅ ${fname} téléchargé.`,'success');
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // UTILITAIRES
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -1150,12 +1374,26 @@ function showAlert(msg,type='info') {
 // INIT
 // ═══════════════════════════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded',()=>{
+  // Restaurer l'année scolaire
   document.getElementById('anneeSelect').value=state.annee;
   document.getElementById('anneeSelect').onchange=function(){state.annee=this.value;saveState();};
-  if(state.students.length)renderDataTable();
-  if(state.groups.length)renderGroupes();
-  if(Object.keys(state.suivi).length)renderSuivi();
+
+  // Restaurer les slotIdx sur les groupes rechargés (non sérialisable directement)
+  if(state.groups.length){
+    computeSlotIdx(state.groups);
+    renderGroupes();
+  }
+  if(state.students.length) renderDataTable();
+  if(Object.keys(state.suivi).length) renderSuivi();
+
+  // Toast de confirmation persistence
+  if(state.students.length||state.groups.length){
+    showAlert(`💾 Données restaurées : ${state.students.length} étudiants · ${state.groups.length} groupes`,'info');
+  }
 });
+
+// Auto-save toutes les 30 secondes en cas d'oubli
+setInterval(saveState, 30000);
 </script>
 </body>
 </html>
