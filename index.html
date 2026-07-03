@@ -630,13 +630,6 @@ function clearData() {
   renderDataTable();
   saveState();
 }
-function clearData() {
-  if(!confirm('Effacer toutes les données ?'))return;
-  state.students=[];state.groups=[];state.profMap={};
-  renderDataTable();
-  document.getElementById('csvInput').value='';
-  saveState();
-}
 function renderDataTable() {
   const st=state.students;
   document.getElementById('dataStats').textContent=st.length?`${st.length} étudiants · Scores ${st[st.length-1]?.score}–${st[0]?.score}`:'';
@@ -1150,29 +1143,29 @@ function buildListingDay(students,label,day) {
         <span style="text-align:center">${cecrlBadge(s.cecrl)}</span>
       </div>`).join('');
 
-    return\`<div class="amphi-card">
-      <div class="amphi-hdr \${a.cls}">
-        <span class="an">🏛️ AMPHI \${a.name.toUpperCase()}</span>
-        <span class="ac">\${a.seats.length} / \${a.places} places · \${lo}–\${hi} pts</span>
+    return`<div class="amphi-card">
+      <div class="amphi-hdr ${a.cls}">
+        <span class="an">🏛️ AMPHI ${a.name.toUpperCase()}</span>
+        <span class="ac">${a.seats.length} / ${a.places} places · ${lo}–${hi} pts</span>
       </div>
       <div class="listing-subhdr">
         <span>NOM</span><span>PRÉNOM</span><span>DEPT</span>
         <span title="N° de place (ordre score croissant : 001 = le plus faible)">N° PLACE</span>
         <span>SCORE</span><span>CECRL</span>
       </div>
-      \${rows||'<div style="padding:12px;color:var(--muted);text-align:center;font-size:12px">— vide —</div>'}
-    </div>\`;
+      ${rows||'<div style="padding:12px;color:var(--muted);text-align:center;font-size:12px">— vide —</div>'}
+    </div>`;
   }).join('');
 
-  return\`<div class="listing-day">
-    <div class="listing-day-hdr \${isMonday?'listing-lundi':'listing-jeudi'}">
-      \${isMonday?'🔵':'🟢'} \${label} — \${students.length} étudiants — \${state.annee}
+  return`<div class="listing-day">
+    <div class="listing-day-hdr ${isMonday?'listing-lundi':'listing-jeudi'}">
+      ${isMonday?'🔵':'🟢'} ${label} — ${students.length} étudiants — ${state.annee}
     </div>
     <div style="font-size:12px;color:var(--muted);margin-bottom:10px;padding:6px 10px;background:#fff;border-radius:var(--radius);border:1px solid var(--border)">
-      🏛️ \${capLine} — Liste alphabétique · N° de place = rang score croissant (001 = le plus faible)
+      🏛️ ${capLine} — Liste alphabétique · N° de place = rang score croissant (001 = le plus faible)
     </div>
-    <div class="amphi-grid">\${amphiCards}</div>
-  </div>\`;
+    <div class="amphi-grid">${amphiCards}</div>
+  </div>`;
 }
 
 
