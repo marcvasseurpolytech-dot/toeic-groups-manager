@@ -265,7 +265,8 @@ tbody td{padding:7px 12px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
       <button class="btn btn-primary" id="btnAnalyser" onclick="previewCSV()">🔍 Analyser le fichier</button>
       <button class="btn btn-outline btn-sm" onclick="document.getElementById('fileIn').click()">📂 Fichier CSV</button>
       <input type="file" id="fileIn" accept=".csv,.txt" style="display:none" onchange="importFile(this)">
-      <button class="btn btn-danger btn-sm" onclick="clearData()">🗑️ Effacer tout</button>
+      <button class="btn btn-danger btn-sm" onclick="clearData()">🗑️ Effacer données</button>
+      <button class="btn btn-danger" onclick="resetAll()" style="margin-left:auto;background:#7b1fa2;border:none" title="Efface tout sauf le Suivi profs">🔄 Réinitialiser tout</button>
     </div>
   </div>
 
@@ -1435,6 +1436,33 @@ function saveDeptDay(dept) {
   saveState();
   renderConfig(); // re-render pour activer/désactiver le slider
 }
+
+function resetAll() {
+  if(!confirm('⚠️  Réinitialiser tout ?\n\nCela efface :\n• Les données étudiants\n• Les groupes générés\n• Les exports\n• Le mapping CSV\n\nLe Suivi profs est conservé.')) return;
+
+  const savedSuivi = JSON.parse(JSON.stringify(state.suivi));
+  const savedAnnee = state.annee;
+
+  state.students=[];state.groups=[];state.profMap={};
+  state.deptDays={};state.deptRatios={};
+  state.profConf=PROF_NAMES.map(name=>({name,gr:[false,false,false,false],nb:2,lundi:'Non',jeudi:'Non',booster:false}));
+  state.suivi=savedSuivi;
+  state.annee=savedAnnee;
+
+  const csvInput=document.getElementById('csvInput');if(csvInput)csvInput.value='';
+  const colMapper=document.getElementById('colMapper');if(colMapper)colMapper.style.display='none';
+  const importDetail=document.getElementById('importDetail');if(importDetail)importDetail.innerHTML='';
+  const btnA=document.getElementById('btnAnalyser');if(btnA)btnA.textContent='🔍 Analyser le fichier';
+
+  renderDataTable();
+  document.getElementById('groupesContent').innerHTML='<div class="empty-state"><div class="icon">👥</div><h3>Aucun groupe généré</h3><p>Cliquer sur "Générer les 15 groupes".</p></div>';
+  document.getElementById('exportContent').innerHTML='<div class="empty-state"><div class="icon">📋</div><h3>Aucun export</h3><p>Générer les groupes puis Exporter.</p></div>';
+  document.getElementById('listingsContent').innerHTML='<div class="empty-state"><div class="icon">📝</div><h3>Aucun listing</h3><p>Générer les groupes puis Générer Listings S7.</p></div>';
+
+  saveState();
+  showAlert('✅ Réinitialisé — Suivi profs conservé.','success');
+}
+
 
 function showAlert(msg,type='info') {
   const div=document.createElement('div');
