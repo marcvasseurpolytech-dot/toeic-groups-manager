@@ -134,10 +134,10 @@ tbody td{padding:7px 12px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
 .amphi-hdr.lebon{background:linear-gradient(90deg,var(--lebon),#ef6c00)}
 .amphi-hdr .an{font-family:'Playfair Display',serif;font-size:14px;font-weight:700}
 .amphi-hdr .ac{font-size:10px;background:rgba(255,255,255,.2);padding:2px 8px;border-radius:10px}
-.listing-subhdr{display:grid;grid-template-columns:36px 1fr 1fr 46px 55px 46px;gap:4px;padding:5px 12px;font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;background:#eceff1;border-bottom:1px solid var(--border)}
-.listing-row{display:grid;grid-template-columns:36px 1fr 1fr 46px 55px 46px;gap:4px;padding:5px 12px;border-bottom:1px solid #f5f5f5;align-items:center;font-size:11.5px}
-.listing-row:nth-child(even){background:#fafafa}
-.listing-row .pl{font-weight:700;text-align:center;color:var(--muted);font-family:'JetBrains Mono',monospace}
+/* Listing S7 : NOM | PRÉNOM | DEPT | N°PLACE | SCORE | CECRL */
+.listing-subhdr{display:grid;grid-template-columns:1fr 1fr 46px 58px 52px 46px;gap:4px;padding:5px 12px;font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;background:#eceff1;border-bottom:1px solid var(--border)}
+.listing-row{display:grid;grid-template-columns:1fr 1fr 46px 58px 52px 46px;gap:4px;padding:5px 12px;border-bottom:1px solid #f5f5f5;align-items:center;font-size:11.5px}
+.listing-row .pl{font-weight:700;text-align:center;color:var(--navy);font-family:'JetBrains Mono',monospace;font-size:12px;background:var(--cream3);border-radius:3px;padding:1px 4px}
 .listing-row .ln{font-weight:700;color:var(--text);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .listing-row .lp{color:var(--muted);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .listing-row .ld{font-size:10px;color:var(--muted);text-align:center}
@@ -1060,50 +1060,75 @@ function genererListings() {
   showAlert(`✅ Listings S7 générés — Lundi : ${monSt.length} ét. · Jeudi : ${thuSt.length} ét.`,'success');
 }
 
+function pad3(n){return String(n).padStart(3,'0');}
+
 function buildListingDay(students,label,day) {
   const isMonday=day==='monday';
   let idx=0;
+
+  // ── Étape 1 : attribuer les N° de place par score croissant (faible=001) ──
+  // students est déjà trié ASC par score (faible→fort)
   const distrib=AMPHIS.map(a=>{
     const seats=[];
     for(let i=0;i<a.places&&idx<students.length;i++,idx++){
-      seats.push({...students[idx],seat:i+1});
+      // N° de place = position dans l'ordre score croissant → 001, 002…
+      seats.push({...students[idx], seat:idx}); // idx global (remis à 0 avant la boucle map)
     }
     return{...a,seats};
+  });
+
+  // Recalculer seat proprement (idx s'est incrémenté globalement)
+  let seatNum=1;
+  distrib.forEach(a=>a.seats.forEach(s=>{s.seat=seatNum++;}));
+
+  // ── Étape 2 : trier chaque amphi par ordre alphabétique NOM puis PRÉNOM ──
+  distrib.forEach(a=>{
+    a.sorted=[...a.seats].sort((x,y)=>
+      x.nom.localeCompare(y.nom,'fr')||x.prenom.localeCompare(y.prenom,'fr')
+    );
   });
 
   const capLine=distrib.map(a=>`${a.name} : ${a.seats.length}/${a.places}`).join(' · ');
 
   const amphiCards=distrib.map(a=>{
-    const hi=a.seats.length?a.seats[a.seats.length-1].score:0;
-    const lo=a.seats.length?a.seats[0].score:0;
-    const rows=a.seats.map(s=>`
-      <div class="listing-row">
-        <span class="pl">${s.seat}</span>
+    const scores=a.seats.map(s=>s.score);
+    const lo=scores.length?Math.min(...scores):0;
+    const hi=scores.length?Math.max(...scores):0;
+
+    // Affichage trié alphabétiquement, N° de place après DEPT
+    const rows=a.sorted.map((s,i)=>`
+      <div class="listing-row" style="${i%2===1?`background:${a.lt}`:''}">
         <span class="ln">${s.nom}</span>
         <span class="lp">${s.prenom}</span>
         <span class="ld">${s.dept}</span>
+        <span class="pl">${pad3(s.seat)}</span>
         <span class="ls">${s.score}</span>
         <span style="text-align:center">${cecrlBadge(s.cecrl)}</span>
       </div>`).join('');
-    return`<div class="amphi-card">
-      <div class="amphi-hdr ${a.cls}">
-        <span class="an">🏛️ AMPHI ${a.name.toUpperCase()}</span>
-        <span class="ac">${a.seats.length} / ${a.places} places · ${lo}–${hi} pts</span>
+
+    return\`<div class="amphi-card">
+      <div class="amphi-hdr \${a.cls}">
+        <span class="an">🏛️ AMPHI \${a.name.toUpperCase()}</span>
+        <span class="ac">\${a.seats.length} / \${a.places} places · \${lo}–\${hi} pts</span>
       </div>
-      <div class="listing-subhdr"><span>N°</span><span>NOM</span><span>PRÉNOM</span><span>DEPT</span><span>SCORE</span><span>CECRL</span></div>
-      ${rows||'<div style="padding:12px;color:var(--muted);text-align:center;font-size:12px">— vide —</div>'}
-    </div>`;
+      <div class="listing-subhdr">
+        <span>NOM</span><span>PRÉNOM</span><span>DEPT</span>
+        <span title="N° de place (ordre score croissant : 001 = le plus faible)">N° PLACE</span>
+        <span>SCORE</span><span>CECRL</span>
+      </div>
+      \${rows||'<div style="padding:12px;color:var(--muted);text-align:center;font-size:12px">— vide —</div>'}
+    </div>\`;
   }).join('');
 
-  return`<div class="listing-day">
-    <div class="listing-day-hdr ${isMonday?'listing-lundi':'listing-jeudi'}">
-      ${isMonday?'🔵':'🟢'} ${label} — ${students.length} étudiants — ${state.annee}
+  return\`<div class="listing-day">
+    <div class="listing-day-hdr \${isMonday?'listing-lundi':'listing-jeudi'}">
+      \${isMonday?'🔵':'🟢'} \${label} — \${students.length} étudiants — \${state.annee}
     </div>
     <div style="font-size:12px;color:var(--muted);margin-bottom:10px;padding:6px 10px;background:#fff;border-radius:var(--radius);border:1px solid var(--border)">
-      🏛️ ${capLine} — Score le plus faible = place 1
+      🏛️ \${capLine} — Liste alphabétique · N° de place = rang score croissant (001 = le plus faible)
     </div>
-    <div class="amphi-grid">${amphiCards}</div>
-  </div>`;
+    <div class="amphi-grid">\${amphiCards}</div>
+  </div>\`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
