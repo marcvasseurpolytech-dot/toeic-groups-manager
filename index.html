@@ -229,11 +229,7 @@ tbody td{padding:7px 12px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
     <p>Polytech Lille — Gestion des groupes de niveau TOEIC</p>
   </div>
   <div style="display:flex;align-items:center;gap:12px">
-    <select id="anneeSelect" class="annee-sel" onchange="state.annee=this.value">
-      <option>2025-2026</option>
-      <option>2026-2027</option>
-      <option>2027-2028</option>
-      <option>2028-2029</option>
+    <select id="anneeSelect" class="annee-sel" onchange="state.annee=this.value;saveState()">
     </select>
     <span class="header-badge">v2.0</span>
   </div>
@@ -414,6 +410,15 @@ const CECRL_COLORS = {C1:['#4527a0','#fff'],B2:['#0d47a1','#fff'],B1:['#1b5e20',
 const NIV_COLORS   = {1:{dk:'#4527a0',lt:'#ede7f6'},2:{dk:'#0d47a1',lt:'#e3f2fd'},3:{dk:'#1b5e20',lt:'#e8f5e9'},4:{dk:'#bf360c',lt:'#fbe9e7'}};
 const LUNDI_OPTS   = ['Non','14h-16h','16h-18h','Les deux'];
 const JEUDI_OPTS   = ['Non','8h-10h','10h-12h','Les deux'];
+
+// Années scolaires dynamiques - 4 ans depuis l'année scolaire en cours
+// Règle : si mois >= 9 (septembre), l'année a commencé cette année; sinon l'année d'avant
+function getAcademicYears(){
+  const m=new Date().getMonth(); // 0=jan … 8=sep
+  const y=new Date().getFullYear();
+  const start=(m>=8)?y:y-1;
+  return[0,1,2,3].map(i=>`${start+i}-${start+i+1}`);
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // STATE
@@ -1478,9 +1483,18 @@ function showAlert(msg,type='info') {
 // INIT
 // ═══════════════════════════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded',()=>{
-  // Restaurer l'année scolaire
-  document.getElementById('anneeSelect').value=state.annee;
-  document.getElementById('anneeSelect').onchange=function(){state.annee=this.value;saveState();};
+  // Remplir le select dynamiquement avec les 4 années courantes
+  const sel=document.getElementById('anneeSelect');
+  const years=getAcademicYears();
+  years.forEach(y=>{
+    const opt=document.createElement('option');
+    opt.value=y; opt.textContent=y;
+    sel.appendChild(opt);
+  });
+  // Restaurer l'année sauvegardée si elle est encore valide, sinon prendre la courante
+  sel.value=years.includes(state.annee)?state.annee:years[0];
+  state.annee=sel.value;
+  sel.onchange=function(){state.annee=this.value;saveState();};
 
   // Restaurer les slotIdx sur les groupes rechargés (non sérialisable directement)
   if(state.groups.length){
