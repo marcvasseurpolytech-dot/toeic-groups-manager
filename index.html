@@ -269,6 +269,7 @@ tbody td{padding:7px 12px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
     </div>
   </div>
 
+  <div id="importDetail"></div>
   <!-- Mapping colonnes (affiché après analyse) -->
   <div id="colMapper" style="display:none">
     <div class="card" style="border:2px solid var(--navy)">
@@ -501,7 +502,8 @@ function previewCSV() {
   const sep=firstLine.includes('\t')?'\t':firstLine.includes(';')?';':',';
 
   _csvSep=sep;
-  _csvLines=raw.split('\n').map(l=>l.trim()).filter(l=>l);
+  // Nettoyer \r\n Windows et lignes vides
+  _csvLines=raw.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n').map(l=>l.trim()).filter(l=>l);
   if(_csvLines.length<2){showAlert('⚠️ Moins de 2 lignes détectées.','warn');return;}
 
   // Détecter l'en-tête : 1re ligne non-numérique
@@ -591,34 +593,84 @@ function applyMapping() {
   if(missing.length){showAlert(`⚠️ Colonnes non définies : ${missing.join(', ')}. Assigner toutes les colonnes.`,'error');return;}
 
   const sep=_csvSep;
-  const hasHeader=_csvHeaders.length>0&&_csvHeaders[0]!=='Colonne 1'&&isNaN(Number(_csvHeaders[0].replace(',','.')));
+  // Recalculer hasHeader depuis les headers sauvegardés
+  const hasHeader=_csvHeaders.length>0&&_csvHeaders[0]!=='Colonne 1';
   const dataLines=_csvLines.slice(hasHeader?1:0);
 
   const students=[];
   const errors=[];
+  const scoreIgnored=[]; // scores hors 10-990
+
   dataLines.forEach((line,li)=>{
-    const p=line.split(sep).map(x=>x.trim());
-    const nom   =(p[_colMap.nom]||'').trim();
-    const prenom=(p[_colMap.prenom]||'').trim();
-    const dept  =(p[_colMap.dept]||'').trim().toUpperCase();
-    const score =Number(p[_colMap.score]);
-    if(!nom){errors.push(`Ligne ${li+2}: nom vide`);return;}
-    if(isNaN(score)||score<10||score>990){errors.push(`Ligne ${li+2}: score invalide (${p[_colMap.score]})`);return;}
+    // Nettoyer fins de ligne Windows
+    const clean=line.replace(/\r/g,'').trim();
+    if(!clean)return; // ligne vraiment vide
+
+    const p=clean.split(sep).map(x=>x.trim().replace(/^["']|["']$/g,'')); // retirer guillemets
+    if(p.length<=Math.max(_colMap.nom,_colMap.prenom,_colMap.dept,_colMap.score)){
+      errors.push(`Ligne ${li+2}: seulement ${p.length} colonne(s) — ignorée`);
+      return;
+    }
+    const nom   =(p[_colMap.nom]||'').replace(/\r/g,'').trim();
+    const prenom=(p[_colMap.prenom]||'').replace(/\r/g,'').trim();
+    const dept  =(p[_colMap.dept]||'').replace(/\r/g,'').trim().toUpperCase();
+    // Score : accepter virgule comme décimale (ex: "615,0" → 615)
+    const rawScore=(p[_colMap.score]||'').replace(/\r/g,'').replace(',','.').trim();
+    const score=Math.round(parseFloat(rawScore));
+
+    if(!nom){errors.push(`Ligne ${li+2}: NOM vide — ignorée`);return;}
+
+    if(isNaN(score)){
+      errors.push(`Ligne ${li+2}: score "${rawScore}" non numérique — ignorée`);return;
+    }
+    if(score<10||score>990){
+      scoreIgnored.push({nom,score,li:li+2});
+      return; // silencieux pour les scores hors plage (ex: 0 = absent)
+    }
+
     students.push({
-      nom:nom.toUpperCase(),   // ← Toujours en MAJUSCULES
-      prenom:prenom.charAt(0).toUpperCase()+prenom.slice(1).toLowerCase(), // ← Capitalisation prénom
-      dept,score,cecrl:getCECRL(score)
+      nom:nom.toUpperCase(),
+      prenom:prenom.charAt(0).toUpperCase()+prenom.slice(1).toLowerCase(),
+      dept:dept||'—', score, cecrl:getCECRL(score)
     });
   });
 
-  if(!students.length){showAlert('⚠️ Aucun étudiant valide importé.','error');return;}
+  if(!students.length){
+    showAlert('⚠️ Aucun étudiant valide importé. Vérifier le mapping des colonnes.','error');
+    if(errors.length) console.warn('Erreurs:', errors);
+    return;
+  }
+
   state.students=students.sort((a,b)=>b.score-a.score);
   state.groups=[];state.profMap={};
   document.getElementById('colMapper').style.display='none';
+  document.getElementById('btnAnalyser').textContent='🔍 Analyser le fichier';
   renderDataTable();
-  const warnMsg=errors.length?` · ${errors.length} ligne(s) ignorée(s)`:'';
-  showAlert(`✅ ${students.length} étudiants importés${warnMsg}`,'success');
-  if(errors.length)console.warn('Lignes ignorées:',errors);
+
+  // Message détaillé
+  let msg=`✅ ${students.length} étudiants importés sur ${dataLines.length} lignes`;
+  if(errors.length) msg+=` · ${errors.length} erreur(s) format`;
+  if(scoreIgnored.length) msg+=` · ${scoreIgnored.length} ignoré(s) (score hors 10–990)`;
+  showAlert(msg,'success');
+
+  // Log détaillé dans la console pour déboguer
+  if(errors.length){ console.warn('Lignes en erreur:', errors); }
+  if(scoreIgnored.length){ console.info('Scores hors plage (absent/invalide):',scoreIgnored.map(x=>x.nom+' '+x.score)); }
+
+  // Afficher un résumé si des étudiants sont manquants
+  if(scoreIgnored.length>0||errors.length>0){
+    const detail=document.getElementById('importDetail');
+    if(detail){
+      const lines=[];
+      if(scoreIgnored.length) lines.push(`<b>${scoreIgnored.length} étudiants avec score hors plage 10–990</b> (absents, non inscrits ?) : ${scoreIgnored.slice(0,5).map(x=>x.nom+' ('+x.score+')').join(', ')}${scoreIgnored.length>5?' …':''}`);
+      if(errors.length) lines.push(`<b>${errors.length} ligne(s) ignorées</b> : ${errors.slice(0,3).join(' · ')}${errors.length>3?' …':''}`);
+      detail.innerHTML='<div class="alert alert-warn" style="margin-top:8px">⚠️ '+lines.join('<br>')+'</div>';
+    }
+  } else {
+    const detail=document.getElementById('importDetail');
+    if(detail) detail.innerHTML='';
+  }
+
   saveState();
 }
 
