@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TOEIC Groups Manager — Polytech Lille</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Source+Serif+4:ital,wght@0,300;0,400;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* ── RESET ── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Source Serif 4',Georgia,serif;background:#f4f3ef;color:#1a1a2e;min-height:100vh;font-size:14px}
+
+/* ── DESIGN TOKENS ── */
+:root{
+  --navy:#1a237e;--navy2:#283593;--navy3:#3949ab;
+  --gold:#f9a825;--gold2:#fbc02d;--gold3:#fff9c4;
+  --cream:#fafaf7;--cream2:#f4f3ef;--cream3:#ece9e0;
+  --niv1-dk:#4527a0;--niv1-mid:#7c4dff;--niv1-lt:#ede7f6;
+  --niv2-dk:#0d47a1;--niv2-mid:#1976d2;--niv2-lt:#e3f2fd;
+  --niv3-dk:#1b5e20;--niv3-mid:#388e3c;--niv3-lt:#e8f5e9;
+  --niv4-dk:#bf360c;--niv4-mid:#e64a19;--niv4-lt:#fbe9e7;
+  --appert:#4527a0;--chappe:#b71c1c;--lebon:#e65100;
+  --text:#1a1a2e;--muted:#546e7a;--border:#d0cfc8;
+  --radius:8px;--radius-lg:12px;
+  --shadow:0 2px 8px rgba(26,35,126,.1);
+  --shadow-lg:0 4px 20px rgba(26,35,126,.18);
+}
+
+/* ── HEADER ── */
+.app-header{background:linear-gradient(135deg,var(--navy),var(--navy2));padding:16px 24px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 3px 12px rgba(26,35,126,.3)}
+.app-header h1{font-family:'Playfair Display',serif;color:#fff;font-size:22px;font-weight:700;letter-spacing:.5px}
+.app-header p{color:rgba(255,255,255,.7);font-size:12px;margin-top:2px}
+.header-badge{background:var(--gold);color:var(--navy);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;padding:4px 10px;border-radius:20px}
+
+/* ── TABS ── */
+.tabs{display:flex;background:var(--navy2);overflow-x:auto;scrollbar-width:none;border-bottom:3px solid var(--gold)}
+.tabs::-webkit-scrollbar{display:none}
+.tab-btn{flex:none;padding:12px 20px;color:rgba(255,255,255,.7);border:none;background:none;cursor:pointer;font-size:13px;font-family:'Source Serif 4',serif;font-weight:600;white-space:nowrap;transition:all .2s;position:relative}
+.tab-btn:hover{color:#fff;background:rgba(255,255,255,.1)}
+.tab-btn.active{color:#fff;background:rgba(255,255,255,.15)}
+.tab-btn.active::after{content:'';position:absolute;bottom:-3px;left:0;right:0;height:3px;background:var(--gold)}
+
+/* ── MAIN LAYOUT ── */
+.main{padding:20px 24px;max-width:1600px;margin:0 auto}
+
+/* ── SECTION HEADERS ── */
+.section-hdr{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.section-hdr h2{font-family:'Playfair Display',serif;font-size:18px;color:var(--navy);font-weight:700}
+.section-hdr p{color:var(--muted);font-size:12px;margin-left:auto}
+
+/* ── CARDS ── */
+.card{background:#fff;border-radius:var(--radius-lg);box-shadow:var(--shadow);padding:18px 20px;margin-bottom:16px;border:1px solid var(--border)}
+.card-title{font-family:'Playfair Display',serif;font-size:14px;font-weight:700;color:var(--navy);margin-bottom:12px;display:flex;align-items:center;gap:8px}
+
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border:none;border-radius:var(--radius);font-family:'Source Serif 4',serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary{background:var(--navy);color:#fff}.btn-primary:hover:not(:disabled){background:var(--navy2)}
+.btn-success{background:#1b5e20;color:#fff}.btn-success:hover:not(:disabled){background:#2e7d32}
+.btn-gold{background:var(--gold);color:var(--navy)}.btn-gold:hover:not(:disabled){background:var(--gold2)}
+.btn-danger{background:#b71c1c;color:#fff}.btn-danger:hover:not(:disabled){background:#c62828}
+.btn-outline{background:transparent;color:var(--navy);border:2px solid var(--navy)}.btn-outline:hover:not(:disabled){background:var(--navy);color:#fff}
+.btn-sm{padding:5px 12px;font-size:12px}
+
+/* ── FORM ELEMENTS ── */
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.form-group{display:flex;flex-direction:column;gap:4px}
+label{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+input,select,textarea{border:1.5px solid var(--border);border-radius:var(--radius);padding:8px 12px;font-family:'Source Serif 4',serif;font-size:13px;color:var(--text);background:#fff;transition:border-color .2s;width:100%}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--navy3)}
+textarea{resize:vertical;min-height:120px;font-family:'JetBrains Mono',monospace;font-size:12px}
+
+/* ── TABLES ── */
+.tbl-wrap{overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead th{background:var(--navy);color:#fff;padding:9px 12px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap}
+tbody tr:nth-child(even){background:#fafafa}
+tbody td{padding:7px 12px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
+
+/* ── CECRL BADGES ── */
+.cecrl{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#fff}
+.cecrl-C1{background:#4527a0}.cecrl-B2{background:#0d47a1}.cecrl-B1{background:#1b5e20}
+.cecrl-A2{background:#e65100}.cecrl-A1{background:#bf360c}
+
+/* ── NIVEAU BADGES ── */
+.niv{display:inline-flex;align-items:center;justify-content:center;padding:3px 10px;border-radius:4px;font-size:11px;font-weight:700;font-family:'JetBrains Mono',monospace;color:#fff}
+.niv-1{background:var(--niv1-dk)}.niv-2{background:var(--niv2-dk)}.niv-3{background:var(--niv3-dk)}.niv-4{background:var(--niv4-dk)}
+
+/* ── GROUPES LAYOUT ── */
+.slot-block{margin-bottom:20px}
+.slot-header{padding:10px 16px;border-radius:var(--radius) var(--radius) 0 0;color:#fff;font-family:'Playfair Display',serif;font-size:15px;font-weight:700;display:flex;align-items:center;gap:10px}
+.slot-lundi{background:linear-gradient(90deg,#1a237e,#283593)}
+.slot-jeudi{background:linear-gradient(90deg,#1b5e20,#2e7d32)}
+.slot-body{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;background:var(--cream2);padding:12px;border-radius:0 0 var(--radius) var(--radius);border:1px solid var(--border);border-top:none}
+
+.grp-card{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.grp-card-hdr{padding:10px 14px;color:#fff;font-weight:700;font-size:12px;display:flex;justify-content:space-between;align-items:center}
+.grp-card-hdr .prof-sel{background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);border-radius:4px;color:#fff;font-size:11px;padding:3px 8px;font-family:'Source Serif 4',serif;cursor:pointer}
+.grp-card-hdr .prof-sel option{color:var(--text);background:#fff}
+.grp-card-hdr.niv-1{background:var(--niv1-dk)}.grp-card-hdr.niv-2{background:var(--niv2-dk)}
+.grp-card-hdr.niv-3{background:var(--niv3-dk)}.grp-card-hdr.niv-4{background:var(--niv4-dk)}
+.grp-score-bar{padding:4px 14px;font-size:10px;font-weight:600;text-align:center}
+.grp-score-bar.niv-1{background:var(--niv1-mid);color:#fff}.grp-score-bar.niv-2{background:var(--niv2-mid);color:#fff}
+.grp-score-bar.niv-3{background:var(--niv3-mid);color:#fff}.grp-score-bar.niv-4{background:var(--niv4-mid);color:#fff}
+.grp-subhdr{display:grid;grid-template-columns:1fr auto auto auto auto;gap:4px;padding:5px 14px;font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;background:#f8f8f8;border-bottom:1px solid var(--border)}
+.grp-student{display:grid;grid-template-columns:1fr auto auto auto auto;gap:4px;padding:4px 14px;font-size:11.5px;border-bottom:1px solid #f5f5f5;align-items:center}
+.grp-student:nth-child(even){background:#fafafa}
+.grp-student .sn{font-weight:600;color:var(--text);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.grp-student .sp{color:var(--muted);overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-size:11px}
+.grp-student .sd{font-size:10px;color:var(--muted);text-align:center}
+.grp-student .ss{font-size:11px;font-weight:700;color:var(--navy);font-family:'JetBrains Mono',monospace;text-align:right}
+
+/* ── SUIVI TABLE ── */
+.suivi-year{margin-bottom:20px}
+.suivi-year-hdr{background:var(--navy);color:#fff;padding:10px 16px;border-radius:var(--radius) var(--radius) 0 0;font-family:'Playfair Display',serif;font-size:15px;font-weight:700}
+.suivi-grid{display:grid;grid-template-columns:160px repeat(4,1fr);border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);overflow:hidden}
+.suivi-col-hdr{padding:8px 10px;background:var(--cream3);font-size:11px;font-weight:700;color:var(--muted);text-align:center;border-right:1px solid var(--border);border-bottom:1px solid var(--border)}
+.suivi-col-hdr:first-child{text-align:left}
+.suivi-prof-name{padding:10px 14px;font-weight:700;font-size:12px;color:#fff;border-right:1px solid rgba(255,255,255,.2);border-bottom:1px solid rgba(255,255,255,.1);display:flex;align-items:center}
+.suivi-cell{padding:8px 6px;text-align:center;border-right:1px solid var(--border);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;font-family:'JetBrains Mono',monospace}
+.suivi-cell.empty{color:#bdbdbd;background:#fafafa}
+
+/* ── LISTING S7 ── */
+.listing-day{margin-bottom:28px}
+.listing-day-hdr{padding:10px 18px;border-radius:var(--radius);color:#fff;font-family:'Playfair Display',serif;font-size:16px;font-weight:700;margin-bottom:12px}
+.listing-lundi{background:linear-gradient(90deg,#1a237e,#283593)}
+.listing-jeudi{background:linear-gradient(90deg,#1b5e20,#2e7d32)}
+.amphi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.amphi-card{background:#fff;border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow)}
+.amphi-hdr{padding:11px 16px;color:#fff;display:flex;justify-content:space-between;align-items:center}
+.amphi-hdr.appert{background:linear-gradient(90deg,var(--appert),#6a1b9a)}
+.amphi-hdr.chappe{background:linear-gradient(90deg,var(--chappe),#c62828)}
+.amphi-hdr.lebon{background:linear-gradient(90deg,var(--lebon),#ef6c00)}
+.amphi-hdr .an{font-family:'Playfair Display',serif;font-size:14px;font-weight:700}
+.amphi-hdr .ac{font-size:10px;background:rgba(255,255,255,.2);padding:2px 8px;border-radius:10px}
+.listing-subhdr{display:grid;grid-template-columns:36px 1fr 1fr 46px 55px 46px;gap:4px;padding:5px 12px;font-size:9px;font-weight:700;color:var(--muted);text-transform:uppercase;background:#eceff1;border-bottom:1px solid var(--border)}
+.listing-row{display:grid;grid-template-columns:36px 1fr 1fr 46px 55px 46px;gap:4px;padding:5px 12px;border-bottom:1px solid #f5f5f5;align-items:center;font-size:11.5px}
+.listing-row:nth-child(even){background:#fafafa}
+.listing-row .pl{font-weight:700;text-align:center;color:var(--muted);font-family:'JetBrains Mono',monospace}
+.listing-row .ln{font-weight:700;color:var(--text);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.listing-row .lp{color:var(--muted);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.listing-row .ld{font-size:10px;color:var(--muted);text-align:center}
+.listing-row .ls{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:12px;color:var(--navy);text-align:right}
+
+/* ── CONFIG PROFS TABLE ── */
+.prof-table{width:100%;border-collapse:collapse;font-size:13px}
+.prof-table th{padding:8px 10px;background:var(--cream3);font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;text-align:center;border:1px solid var(--border)}
+.prof-table th:first-child{text-align:left}
+.prof-table td{padding:8px 10px;border:1px solid #ececec;vertical-align:middle}
+.prof-table tr:nth-child(even) td{background:#fafaf8}
+.prof-name{font-weight:700;font-size:13px}
+.gr-cb{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.gr-cb label{display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;font-weight:600}
+.gr-cb input[type=checkbox]{width:14px;height:14px;cursor:pointer;accent-color:var(--navy)}
+.booster-cb{display:flex;align-items:center;justify-content:center;gap:5px;cursor:pointer}
+.booster-cb input{accent-color:#b71c1c;width:15px;height:15px;cursor:pointer}
+
+/* ── DEPT TABLE ── */
+.dept-table{width:100%;border-collapse:collapse;font-size:13px}
+.dept-table th{padding:8px 12px;background:var(--cream3);font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;border:1px solid var(--border);text-align:center}
+.dept-table td{padding:7px 12px;border:1px solid #ececec;text-align:center;vertical-align:middle}
+.dept-table tr:nth-child(even) td{background:#fafaf8}
+.dept-name{font-weight:700;font-size:13px;text-align:left}
+.day-radio label{display:flex;align-items:center;justify-content:center;gap:5px;cursor:pointer;font-size:12px}
+.day-radio input{accent-color:var(--navy);width:14px;height:14px;cursor:pointer}
+
+/* ── ALERT / TOAST ── */
+.alert{padding:10px 16px;border-radius:var(--radius);margin-bottom:14px;font-size:13px;font-weight:600}
+.alert-info{background:#e3f2fd;color:#0d47a1;border-left:4px solid #1976d2}
+.alert-success{background:#e8f5e9;color:#1b5e20;border-left:4px solid #388e3c}
+.alert-warn{background:#fff9c4;color:#5d4037;border-left:4px solid #f9a825}
+.alert-error{background:#ffebee;color:#b71c1c;border-left:4px solid #e53935}
+
+/* ── TOOLBAR ── */
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:18px;padding:14px 16px;background:#fff;border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow)}
+.toolbar-sep{width:1px;height:28px;background:var(--border)}
+
+/* ── STATS BAR ── */
+.stats-bar{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:16px}
+.stat{background:#fff;border-radius:var(--radius);padding:10px 16px;box-shadow:var(--shadow);border:1px solid var(--border);min-width:110px}
+.stat-val{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:var(--navy)}
+.stat-lbl{font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+
+/* ── ANNÉE SCOLAIRE SELECT ── */
+.annee-sel{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700;background:var(--gold3);border-color:var(--gold2);color:var(--navy);padding:6px 12px;border-radius:var(--radius);cursor:pointer}
+
+/* ── PRINT ── */
+@media print{
+  .app-header,.tabs,.toolbar,.btn,.no-print{display:none!important}
+  .main{padding:0}
+  .slot-block,.listing-day,.amphi-grid{break-inside:avoid}
+}
+
+/* ── EMPTY STATE ── */
+.empty-state{text-align:center;padding:48px 24px;color:var(--muted)}
+.empty-state .icon{font-size:48px;margin-bottom:12px}
+.empty-state h3{font-family:'Playfair Display',serif;font-size:18px;color:var(--navy);margin-bottom:8px}
+.empty-state p{font-size:13px}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="app-header">
+  <div>
+    <h1>🎓 TOEIC Groups Manager</h1>
+    <p>Polytech Lille — Gestion des groupes de niveau TOEIC</p>
+  </div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <select id="anneeSelect" class="annee-sel" onchange="state.annee=this.value">
+      <option>2025-2026</option>
+      <option>2026-2027</option>
+      <option>2027-2028</option>
+      <option>2028-2029</option>
+    </select>
+    <span class="header-badge">v2.0</span>
+  </div>
+</header>
+
+<!-- TABS -->
+<nav class="tabs">
+  <button class="tab-btn active" onclick="showTab('donnees',this)">📋 Données</button>
+  <button class="tab-btn" onclick="showTab('config',this)">⚙️ Config</button>
+  <button class="tab-btn" onclick="showTab('groupes',this)">👥 Groupes</button>
+  <button class="tab-btn" onclick="showTab('export',this)">📋 Exports</button>
+  <button class="tab-btn" onclick="showTab('suivi',this)">📊 Suivi profs</button>
+  <button class="tab-btn" onclick="showTab('listings',this)">📝 Listings S7</button>
+</nav>
+
+<!-- ═══ DONNÉES ═══ -->
+<div id="tab-donnees" class="main">
+  <div class="section-hdr">
+    <h2>📋 Données Étudiants</h2>
+    <p id="dataStats"></p>
+  </div>
+  <div class="card">
+    <div class="card-title">📥 Import CSV / Coller les données</div>
+    <div class="alert alert-info" style="margin-bottom:12px">
+      Coller les données ici au format : <code>NOM;PRÉNOM;DÉPARTEMENT;SCORE</code> (une ligne par étudiant, séparateur <b>;</b> ou <b>tabulation</b>). Ligne d'en-tête ignorée automatiquement.
+    </div>
+    <textarea id="csvInput" placeholder="DUPONT;Lucas;GBA;615&#10;MARTIN;Chloé;MAT;780&#10;NGUYEN;Thuy;IOT;425&#10;..." rows="10"></textarea>
+    <div style="display:flex;gap:10px;margin-top:12px;flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="importCSV()">📥 Importer</button>
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('fileIn').click()">📂 Fichier CSV</button>
+      <input type="file" id="fileIn" accept=".csv,.txt" style="display:none" onchange="importFile(this)">
+      <button class="btn btn-danger btn-sm" onclick="clearData()">🗑️ Effacer</button>
+    </div>
+  </div>
+
+  <div id="dataTable"></div>
+</div>
+
+<!-- ═══ CONFIG ═══ -->
+<div id="tab-config" class="main" style="display:none">
+  <div class="section-hdr"><h2>⚙️ Configuration</h2></div>
+
+  <!-- APPAIREMENTS DEPTS -->
+  <div class="card">
+    <div class="card-title">🏫 Appairements Départements → Journée</div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Associer chaque département à Lundi ou Jeudi. Aucun choix = distribué automatiquement.</p>
+    <table class="dept-table">
+      <thead><tr><th style="text-align:left">Département</th><th>🔵 Lundi</th><th>🟢 Jeudi</th><th>— Aucun</th></tr></thead>
+      <tbody id="deptBody"></tbody>
+    </table>
+  </div>
+
+  <!-- PROFS -->
+  <div class="card">
+    <div class="card-title">👤 Attribution des Professeurs</div>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px">
+      Cocher les niveaux souhaités · Nb grp = nb de groupes par semaine · Lundi / Jeudi = créneaux · Booster ✓ = enseigne les NIV.4 (règle : interdit de prendre un Gr1 + 1 seul Gr1 par prof max)
+    </p>
+    <div style="overflow-x:auto">
+    <table class="prof-table" id="profTable">
+      <thead>
+        <tr>
+          <th>Professeur</th>
+          <th>Gr1</th><th>Gr2</th><th>Gr3</th><th>Gr4</th>
+          <th>Nb grp</th>
+          <th>Lundi</th>
+          <th>Jeudi</th>
+          <th>Booster</th>
+        </tr>
+      </thead>
+      <tbody id="profBody"></tbody>
+    </table>
+    </div>
+  </div>
+
+  <!-- AMPHIS -->
+  <div class="card">
+    <div class="card-title">🏛️ Capacité des Amphithéâtres (TOEIC S7)</div>
+    <div class="form-grid" id="amphiConfig"></div>
+  </div>
+</div>
+
+<!-- ═══ GROUPES ═══ -->
+<div id="tab-groupes" class="main" style="display:none">
+  <div class="toolbar no-print">
+    <button class="btn btn-primary" onclick="genererGroupes()">▶ Générer les 15 groupes</button>
+    <div class="toolbar-sep"></div>
+    <button class="btn btn-outline btn-sm" onclick="window.print()">🖨️ Imprimer</button>
+    <span id="grpStats" style="margin-left:auto;font-size:12px;color:var(--muted)"></span>
+  </div>
+  <div id="groupesContent">
+    <div class="empty-state"><div class="icon">👥</div><h3>Aucun groupe généré</h3><p>Cliquer sur "Générer les 15 groupes" pour commencer.</p></div>
+  </div>
+</div>
+
+<!-- ═══ EXPORTS ═══ -->
+<div id="tab-export" class="main" style="display:none">
+  <div class="toolbar no-print">
+    <button class="btn btn-primary" onclick="exporterJour('monday')">📋 Exporter Lundi</button>
+    <button class="btn btn-success" onclick="exporterJour('thursday')">📋 Exporter Jeudi</button>
+    <div class="toolbar-sep"></div>
+    <button class="btn btn-outline btn-sm" onclick="window.print()">🖨️ PDF / Imprimer</button>
+  </div>
+  <div id="exportContent">
+    <div class="empty-state"><div class="icon">📋</div><h3>Aucun export</h3><p>Générer les groupes puis cliquer sur Exporter Lundi ou Jeudi.</p></div>
+  </div>
+</div>
+
+<!-- ═══ SUIVI ═══ -->
+<div id="tab-suivi" class="main" style="display:none">
+  <div class="toolbar no-print">
+    <button class="btn btn-primary" onclick="actualiserSuivi()">🔄 Actualiser le Suivi</button>
+    <button class="btn btn-outline btn-sm" onclick="window.print()">🖨️ Imprimer</button>
+  </div>
+  <div id="suiviContent">
+    <div class="empty-state"><div class="icon">📊</div><h3>Suivi vide</h3><p>Générer les groupes et cliquer "Actualiser le Suivi".</p></div>
+  </div>
+</div>
+
+<!-- ═══ LISTINGS S7 ═══ -->
+<div id="tab-listings" class="main" style="display:none">
+  <div class="toolbar no-print">
+    <button class="btn btn-success" onclick="genererListings()">🎓 Générer Listings TOEIC S7</button>
+    <button class="btn btn-outline btn-sm" onclick="window.print()">🖨️ PDF / Imprimer</button>
+  </div>
+  <div id="listingsContent">
+    <div class="empty-state"><div class="icon">📝</div><h3>Aucun listing</h3><p>Générer les groupes puis cliquer "Générer Listings TOEIC S7".</p></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════════
+// CONSTANTES
+// ═══════════════════════════════════════════════════════════════════════════════
+const PROF_NAMES   = ['BEAURY','EATON','DUCHATEAU','CHAYANI','VASSEUR','THEPEUNIER'];
+const PROF_COLORS  = ['#880e4f','#1a237e','#1b5e20','#e65100','#311b92','#004d40'];
+const DEPTS        = ['GBA','MAT','MECA','GC','ISIA','EIF','IOT','2IA'];
+const TIME_SLOTS   = ['Lundi 14h–16h','Lundi 16h–18h','Jeudi 8h–10h','Jeudi 10h–12h'];
+const N_MON=8,N_THU=7,N_GROUPS=15,MIN_PG=18,MAX_PG=21;
+const DIST_MON=[2,2,2,2],DIST_THU=[2,2,2,1];
+const AMPHIS = [
+  {name:'Appert',places:70,cls:'appert',dk:'#4527a0',lt:'#ede7f6'},
+  {name:'Chappe',places:50,cls:'chappe',dk:'#b71c1c',lt:'#ffebee'},
+  {name:'Lebon', places:50,cls:'lebon', dk:'#e65100',lt:'#fbe9e7'},
+];
+const CECRL_COLORS = {C1:['#4527a0','#fff'],B2:['#0d47a1','#fff'],B1:['#1b5e20','#fff'],A2:['#e65100','#fff'],A1:['#bf360c','#fff']};
+const NIV_COLORS   = {1:{dk:'#4527a0',lt:'#ede7f6'},2:{dk:'#0d47a1',lt:'#e3f2fd'},3:{dk:'#1b5e20',lt:'#e8f5e9'},4:{dk:'#bf360c',lt:'#fbe9e7'}};
+const LUNDI_OPTS   = ['Non','14h-16h','16h-18h','Les deux'];
+const JEUDI_OPTS   = ['Non','8h-10h','10h-12h','Les deux'];
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════════════════════
+const state = {
+  annee: '2025-2026',
+  students: [],
+  groups: [],
+  profMap: {}, // groupNum → profName (sélections manuelles)
+  suivi: {}, // annee → {profName → {slotIdx → niveau}}
+  amphiPlaces: {Appert:70, Chappe:50, Lebon:50},
+  deptDays: {}, // dept → 'monday'|'thursday'|null
+  profConf: PROF_NAMES.map(name=>({
+    name, gr:[false,false,false,false], nb:2,
+    lundi:'Non', jeudi:'Non', booster:false
+  })),
+};
+
+// Charger depuis localStorage si disponible
+try {
+  const saved = localStorage.getItem('toeic-groups-state');
+  if(saved) { const s=JSON.parse(saved); Object.assign(state,s); }
+} catch(_) {}
+
+function saveState() {
+  try { localStorage.setItem('toeic-groups-state', JSON.stringify({
+    annee:state.annee, students:state.students, groups:state.groups,
+    profMap:state.profMap, suivi:state.suivi, amphiPlaces:state.amphiPlaces,
+    deptDays:state.deptDays, profConf:state.profConf
+  })); } catch(_) {}
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════════════════════════════════════
+function showTab(name, btn) {
+  document.querySelectorAll('[id^="tab-"]').forEach(t=>t.style.display='none');
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+name).style.display='';
+  btn.classList.add('active');
+  if(name==='config') renderConfig();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CECRL
+// ═══════════════════════════════════════════════════════════════════════════════
+function getCECRL(s) {
+  const n=Number(s);if(isNaN(n)||n<0)return'—';
+  if(n>=945)return'C1';if(n>=785)return'B2';if(n>=550)return'B1';
+  if(n>=225)return'A2';if(n>=10)return'A1';return'—';
+}
+function cecrlBadge(c) {
+  const col=CECRL_COLORS[c];if(!col)return`<span>${c}</span>`;
+  return`<span class="cecrl cecrl-${c}">${c}</span>`;
+}
+function nivBadge(n) { return`<span class="niv niv-${n}">Gr${n}</span>`; }
+function grpCECRL(grp) {
+  if(!grp.students.length)return'—';
+  const hi=getCECRL(grp.students[0].score),lo=getCECRL(grp.students[grp.students.length-1].score);
+  return hi===lo?hi:`${hi}→${lo}`;
+}
+function nivToGr(n){return`Gr${n}`;}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// IMPORT DONNÉES
+// ═══════════════════════════════════════════════════════════════════════════════
+function importCSV() {
+  const raw=document.getElementById('csvInput').value.trim();
+  if(!raw){alert('Coller des données d\'abord.');return;}
+  parseAndLoad(raw);
+}
+function importFile(input) {
+  const f=input.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=e=>{ document.getElementById('csvInput').value=e.target.result; parseAndLoad(e.target.result); };
+  r.readAsText(f,'UTF-8');
+}
+function parseAndLoad(raw) {
+  const lines=raw.split('\n').map(l=>l.trim()).filter(l=>l);
+  const students=[];
+  lines.forEach(line=>{
+    const parts=line.split(/[;\t,]/).map(p=>p.trim());
+    if(parts.length<4)return;
+    const [nom,prenom,dept,scoreRaw]=parts;
+    const score=Number(scoreRaw);
+    if(isNaN(score)||score<10||score>990)return;
+    if(nom.toLowerCase()==='nom'||nom.toLowerCase()==='name')return; // header
+    students.push({nom:nom.toUpperCase(),prenom,dept:dept.toUpperCase(),score,cecrl:getCECRL(score)});
+  });
+  if(!students.length){showAlert('⚠️ Aucun étudiant valide trouvé. Vérifier le format.','error');return;}
+  state.students=students.sort((a,b)=>b.score-a.score);
+  state.groups=[];state.profMap={};
+  renderDataTable();
+  showAlert(`✅ ${students.length} étudiants importés avec succès.`,'success');
+  saveState();
+}
+function clearData() {
+  if(!confirm('Effacer toutes les données ?'))return;
+  state.students=[];state.groups=[];state.profMap={};
+  renderDataTable();
+  document.getElementById('csvInput').value='';
+  saveState();
+}
+function renderDataTable() {
+  const st=state.students;
+  document.getElementById('dataStats').textContent=st.length?`${st.length} étudiants · Scores ${st[st.length-1]?.score}–${st[0]?.score}`:'';
+  const el=document.getElementById('dataTable');
+  if(!st.length){el.innerHTML='';return;}
+  const rows=st.map((s,i)=>`<tr>
+    <td style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted)">${i+1}</td>
+    <td style="font-weight:700">${s.nom}</td>
+    <td>${s.prenom}</td>
+    <td style="text-align:center;font-size:11px;color:var(--muted)">${s.dept}</td>
+    <td style="font-family:'JetBrains Mono',monospace;font-weight:700;text-align:right;color:var(--navy)">${s.score}</td>
+    <td style="text-align:center">${cecrlBadge(s.cecrl)}</td>
+  </tr>`).join('');
+  el.innerHTML=`<div class="card"><div class="card-title">👥 Étudiants (${st.length})</div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>#</th><th>NOM</th><th>PRÉNOM</th><th>DEPT</th><th>SCORE</th><th>CECRL</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div></div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CONFIG RENDER
+// ═══════════════════════════════════════════════════════════════════════════════
+function renderConfig() {
+  // Depts
+  const db=document.getElementById('deptBody');
+  db.innerHTML=DEPTS.map(d=>{
+    const cur=state.deptDays[d]||'none';
+    return`<tr>
+      <td class="dept-name">${d}</td>
+      <td><label class="day-radio"><input type="radio" name="dept-${d}" value="monday" ${cur==='monday'?'checked':''} onchange="state.deptDays['${d}']=this.value;saveState()"> Lundi</label></td>
+      <td><label class="day-radio"><input type="radio" name="dept-${d}" value="thursday" ${cur==='thursday'?'checked':''} onchange="state.deptDays['${d}']=this.value;saveState()"> Jeudi</label></td>
+      <td><label class="day-radio"><input type="radio" name="dept-${d}" value="none" ${cur==='none'||cur===undefined?'checked':''} onchange="state.deptDays['${d}']='none';saveState()"> Aucun</label></td>
+    </tr>`;
+  }).join('');
+
+  // Profs
+  const pb=document.getElementById('profBody');
+  pb.innerHTML=state.profConf.map((p,i)=>`<tr>
+    <td><span class="prof-name" style="color:${PROF_COLORS[i]}">${p.name}</span></td>
+    ${[0,1,2,3].map(g=>`<td><label class="gr-cb"><input type="checkbox" ${p.gr[g]?'checked':''} onchange="state.profConf[${i}].gr[${g}]=this.checked;saveState()" style="accent-color:${NIV_COLORS[g+1].dk}"> Gr${g+1}</label></td>`).join('')}
+    <td><select style="width:60px;padding:4px 6px;font-family:'JetBrains Mono',monospace;font-size:12px" onchange="state.profConf[${i}].nb=Number(this.value);saveState()">
+      ${[0,1,2,3,4].map(n=>`<option ${p.nb===n?'selected':''}>${n}</option>`).join('')}
+    </select></td>
+    <td><select style="width:100px;font-size:12px;padding:4px 6px" onchange="state.profConf[${i}].lundi=this.value;saveState()">
+      ${LUNDI_OPTS.map(o=>`<option ${p.lundi===o?'selected':''}>${o}</option>`).join('')}
+    </select></td>
+    <td><select style="width:100px;font-size:12px;padding:4px 6px" onchange="state.profConf[${i}].jeudi=this.value;saveState()">
+      ${JEUDI_OPTS.map(o=>`<option ${p.jeudi===o?'selected':''}>${o}</option>`).join('')}
+    </select></td>
+    <td><label class="booster-cb"><input type="checkbox" ${p.booster?'checked':''} onchange="state.profConf[${i}].booster=this.checked;saveState()"> <span style="color:#b71c1c;font-size:12px;font-weight:700">Booster</span></label></td>
+  </tr>`).join('');
+
+  // Amphis
+  document.getElementById('amphiConfig').innerHTML=AMPHIS.map(a=>`
+    <div class="form-group">
+      <label><span style="color:${a.dk}">🏛️ Amphi ${a.name}</span></label>
+      <input type="number" min="1" max="200" value="${state.amphiPlaces[a.name]}"
+        onchange="state.amphiPlaces['${a.name}']=Number(this.value);saveState()"
+        style="font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700;text-align:center;border-color:${a.dk}">
+      <small style="color:var(--muted);font-size:11px">places disponibles</small>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ALGORITHME — PARTITION ÉTUDIANTS
+// ═══════════════════════════════════════════════════════════════════════════════
+function partitionStudents() {
+  const all=state.students;
+  const monDepts=DEPTS.filter(d=>state.deptDays[d]==='monday');
+  const thuDepts=DEPTS.filter(d=>state.deptDays[d]==='thursday');
+  let monSt=all.filter(s=>monDepts.includes(s.dept));
+  let thuSt=all.filter(s=>thuDepts.includes(s.dept));
+  const unassigned=all.filter(s=>!monDepts.includes(s.dept)&&!thuDepts.includes(s.dept));
+  // Distribuer les non-affectés en équilibrant
+  unassigned.forEach(s=>{
+    const mr=monSt.length/(N_MON*20),tr=thuSt.length/(N_THU*20);
+    if(mr<=tr)monSt.push(s);else thuSt.push(s);
+  });
+  monSt.sort((a,b)=>b.score-a.score);
+  thuSt.sort((a,b)=>b.score-a.score);
+  return{monSt,thuSt};
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ALGORITHME — CRÉATION DES GROUPES
+// ═══════════════════════════════════════════════════════════════════════════════
+function createDayGroups(students,nGrp,targetDist,day) {
+  const total=students.length;
+  if(!total) return Array.from({length:nGrp},(_,i)=>({num:0,niveau:Math.floor(i/2)+1,day,students:[]}));
+  const base=Math.floor(total/nGrp),extra=total%nGrp;
+  const groups=[];let si=0;
+  for(let g=0;g<nGrp;g++){
+    const size=base+(g<extra?1:0);
+    groups.push({num:0,niveau:0,day,students:students.slice(si,si+size)});
+    si+=size;
+  }
+  // Règle mouvante CECRL
+  const cumul=[];let acc=0;
+  groups.forEach(g=>{acc+=g.students.length;cumul.push(acc);});
+  const lastWith=min=>{let l=-1;for(let i=0;i<students.length;i++){if(students[i].score>=min)l=i;}return l;};
+  const toGrp=idx=>{if(idx<0)return-1;for(let g=0;g<nGrp;g++){if(idx<cumul[g])return g;}return nGrp-1;};
+  const n1=toGrp(lastWith(945)),n2=Math.max(n1,toGrp(lastWith(785))),n3=Math.max(n2,toGrp(lastWith(550)));
+  groups.forEach((g,i)=>{
+    if(n1>=0&&i<=n1)g.niveau=1;
+    else if(n2>=0&&i<=n2)g.niveau=2;
+    else if(n3>=0&&i<=n3)g.niveau=3;
+    else g.niveau=4;
+  });
+  // Rééquilibrage
+  rebalanceDay(groups,targetDist);
+  return groups;
+}
+
+function rebalanceDay(groups,target) {
+  const byNiv=[[],[],[],[]];
+  groups.forEach((g,i)=>byNiv[g.niveau-1].push(i));
+  for(let p=0;p<10;p++){
+    let ch=false;
+    for(let niv=0;niv<3;niv++){
+      while(byNiv[niv].length>target[niv]){const idx=byNiv[niv].pop();groups[idx].niveau=niv+2;byNiv[niv+1].unshift(idx);ch=true;}
+      while(byNiv[niv].length<target[niv]&&byNiv[niv+1].length>target[niv+1]){const idx=byNiv[niv+1].shift();groups[idx].niveau=niv+1;byNiv[niv].push(idx);ch=true;}
+    }
+    if(!ch)break;
+  }
+}
+
+function makeGroups(monSt,thuSt) {
+  const monGroups=createDayGroups(monSt,N_MON,DIST_MON,'monday');
+  const thuGroups=createDayGroups(thuSt,N_THU,DIST_THU,'thursday');
+  let num=1;monGroups.forEach(g=>g.num=num++);thuGroups.forEach(g=>g.num=num++);
+  return[...monGroups,...thuGroups];
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ALGORITHME — ATTRIBUTION PROFS
+// ═══════════════════════════════════════════════════════════════════════════════
+function buildDayNivSeq(avail,nSlots) {
+  const sorted=[...new Set(avail)].sort((a,b)=>a-b);
+  if(!sorted.length)return[];
+  if(nSlots===1)return[sorted[0]];
+  const fort=sorted[0],rest=sorted.filter(n=>n!==fort);
+  const faible=rest.length?rest[rest.length-1]:sorted[sorted.length-1];
+  return[fort,faible];
+}
+
+function assignProfs(groups) {
+  const monByNiv={1:[],2:[],3:[],4:[]},thuByNiv={1:[],2:[],3:[],4:[]};
+  groups.forEach(g=>{g.day==='monday'?monByNiv[g.niveau].push(g):thuByNiv[g.niveau].push(g);});
+
+  const profMap={};
+  const usedGrps=new Set();
+
+  state.profConf.filter(p=>p.nb>0).forEach(p=>{
+    const allowedNiv=(p.booster?p.gr.map((c,i)=>c?i+1:null).filter(n=>n&&n!==4):p.gr.map((c,i)=>c?i+1:null).filter(n=>n));
+    if(!allowedNiv.length)return;
+
+    const monSlots=[];const thuSlots=[];
+    if(p.lundi==='14h-16h')monSlots.push(0);if(p.lundi==='16h-18h')monSlots.push(1);if(p.lundi==='Les deux'){monSlots.push(0);monSlots.push(1);}
+    if(p.jeudi==='8h-10h')thuSlots.push(2);if(p.jeudi==='10h-12h')thuSlots.push(3);if(p.jeudi==='Les deux'){thuSlots.push(2);thuSlots.push(3);}
+
+    let hasNiv1=false,totalAssigned=0;
+    const daysWork=[];
+    if(monSlots.length)daysWork.push({slots:monSlots,byNiv:monByNiv,isMon:true});
+    if(thuSlots.length)daysWork.push({slots:thuSlots,byNiv:thuByNiv,isMon:false});
+
+    daysWork.forEach(({slots,byNiv,isMon})=>{
+      if(totalAssigned>=p.nb)return;
+      const slotsNeeded=Math.min(slots.length,p.nb-totalAssigned);
+      const avail=allowedNiv.filter(n=>!(n===1&&hasNiv1));
+      const dayNivs=buildDayNivSeq(avail,slotsNeeded);
+      slots.slice(0,slotsNeeded).forEach((slot,si)=>{
+        if(si>=dayNivs.length)return;
+        const niv=dayNivs[si],pos=isMon?slot:slot-2;
+        const grp=byNiv[niv]&&byNiv[niv][pos];
+        if(grp&&!usedGrps.has(grp.num)){
+          profMap[grp.num]=p.name;usedGrps.add(grp.num);
+          if(niv===1)hasNiv1=true;totalAssigned++;
+        }
+      });
+    });
+  });
+
+  groups.forEach(g=>{if(profMap[g.num]===undefined)profMap[g.num]='';});
+  return profMap;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CALCUL SLOTIDX
+// ═══════════════════════════════════════════════════════════════════════════════
+function computeSlotIdx(groups) {
+  const mN={1:[],2:[],3:[],4:[]},tN={1:[],2:[],3:[],4:[]};
+  groups.forEach(g=>{g.day==='monday'?mN[g.niveau].push(g):tN[g.niveau].push(g);});
+  groups.forEach(g=>{
+    const arr=g.day==='monday'?mN[g.niveau]:tN[g.niveau];
+    g.slotIdx=Math.min(g.day==='monday'?arr.indexOf(g):(2+arr.indexOf(g)),3);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// GÉNÉRATION GROUPES
+// ═══════════════════════════════════════════════════════════════════════════════
+function genererGroupes() {
+  if(!state.students.length){showAlert('⚠️ Aucune donnée. Importer les étudiants d\'abord.','error');return;}
+  const{monSt,thuSt}=partitionStudents();
+  state.groups=makeGroups(monSt,thuSt);
+  const autoMap=assignProfs(state.groups);
+  // Fusionner avec les choix manuels existants
+  state.profMap={...autoMap,...state.profMap};
+  computeSlotIdx(state.groups);
+  saveState();
+  renderGroupes();
+  showAlert(`✅ ${state.groups.length} groupes générés — ${state.students.length} étudiants`,'success');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// RENDU GROUPES
+// ═══════════════════════════════════════════════════════════════════════════════
+function renderGroupes() {
+  const groups=state.groups;
+  if(!groups.length){document.getElementById('groupesContent').innerHTML='<div class="empty-state"><div class="icon">👥</div><h3>Aucun groupe</h3><p>Cliquer sur "Générer les groupes".</p></div>';return;}
+
+  const mN={1:[],2:[],3:[],4:[]},tN={1:[],2:[],3:[],4:[]};
+  groups.forEach(g=>{g.day==='monday'?mN[g.niveau].push(g):tN[g.niveau].push(g);});
+
+  const slots=[
+    [1,2,3,4].map(n=>mN[n][0]||null),
+    [1,2,3,4].map(n=>mN[n][1]||null),
+    [1,2,3,4].map(n=>tN[n][0]||null),
+    [1,2,3,4].map(n=>tN[n][1]||null),
+  ];
+
+  const byN=[0,0,0,0];groups.forEach(g=>byN[g.niveau-1]++);
+  document.getElementById('grpStats').textContent=`${groups.length} groupes · ${state.students.length} étudiants · NIV.1:${byN[0]} NIV.2:${byN[1]} NIV.3:${byN[2]} NIV.4:${byN[3]}`;
+
+  const maxSt=Math.max(...groups.map(g=>g.students.length));
+
+  const slotsHTML=slots.map((slotGrps,si)=>{
+    const isMonday=si<2;
+    const grpsHTML=slotGrps.map(g=>{
+      if(!g)return`<div style="background:var(--cream3);border-radius:var(--radius);padding:20px;color:var(--muted);text-align:center;font-size:12px">— vide —</div>`;
+      const cc=NIV_COLORS[g.niveau],prof=state.profMap[g.num]||'';
+      const avg=g.students.length?Math.round(g.students.reduce((a,s)=>a+s.score,0)/g.students.length):0;
+      const hi=g.students[0]?.score||0,lo=g.students[g.students.length-1]?.score||0;
+      const stuRows=g.students.map((s,i)=>`
+        <div class="grp-student" style="${i%2===1?`background:${cc.lt}`:''}">
+          <span class="sn">${i+1}. ${s.nom}</span>
+          <span class="sp">${s.prenom}</span>
+          <span class="sd">${s.dept}</span>
+          <span class="ss">${s.score}</span>
+          <span style="text-align:center">${cecrlBadge(s.cecrl)}</span>
+        </div>`).join('');
+      const profOptions=PROF_NAMES.map(n=>`<option ${prof===n?'selected':''}>${n}</option>`).join('');
+      return`<div class="grp-card">
+        <div class="grp-card-hdr niv-${g.niveau}" style="gap:8px">
+          <div>
+            <div style="font-size:13px">${grpCECRL(g)} · ${nivToGr(g.niveau)}</div>
+            <div style="font-size:10px;opacity:.8">moy.${avg} · ${g.students.length} ét.</div>
+          </div>
+          <select class="prof-sel" onchange="updateProf(${g.num},this.value)">
+            <option value="">👤 Prof…</option>${profOptions}
+          </select>
+        </div>
+        <div class="grp-score-bar niv-${g.niveau}">${lo} – ${hi} pts</div>
+        <div class="grp-subhdr"><span>NOM</span><span>PRÉNOM</span><span style="text-align:center">DEPT</span><span style="text-align:right">SCORE</span><span style="text-align:center">CECRL</span></div>
+        ${stuRows}
+      </div>`;
+    }).join('');
+    return`<div class="slot-block">
+      <div class="slot-header ${isMonday?'slot-lundi':'slot-jeudi'}">⏰ ${TIME_SLOTS[si]}${si===3?' — 3 groupes':''}</div>
+      <div class="slot-body">${grpsHTML}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('groupesContent').innerHTML=slotsHTML;
+}
+
+function updateProf(grpNum, profName) {
+  state.profMap[grpNum]=profName;
+  // Mettre à jour le suivi
+  const g=state.groups.find(x=>x.num===grpNum);
+  if(g&&g.slotIdx!==undefined){
+    if(!state.suivi[state.annee])state.suivi[state.annee]={};
+    if(!state.suivi[state.annee][profName])state.suivi[state.annee][profName]={};
+    state.suivi[state.annee][profName][g.slotIdx]=g.niveau;
+  }
+  saveState();
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// EXPORTS LUNDI / JEUDI
+// ═══════════════════════════════════════════════════════════════════════════════
+function exporterJour(day) {
+  if(!state.groups.length){showAlert('⚠️ Générer les groupes d\'abord.','error');return;}
+  actualiserSuivi();
+
+  const groups=state.groups.filter(g=>g.day===day);
+  if(!groups.length){showAlert('⚠️ Aucun groupe pour cette journée.','warn');return;}
+
+  const label=day==='monday'?'Lundi':'Jeudi';
+  const slots=day==='monday'?
+    [[1,2,3,4].map(n=>({})),TIME_SLOTS.slice(0,2)]:
+    [TIME_SLOTS.slice(2,4)];
+
+  const mN={1:[],2:[],3:[],4:[]},tN={1:[],2:[],3:[],4:[]};
+  state.groups.forEach(g=>{g.day==='monday'?mN[g.niveau].push(g):tN[g.niveau].push(g);});
+  const byNiv=day==='monday'?mN:tN;
+  const slotLabels=day==='monday'?[TIME_SLOTS[0],TIME_SLOTS[1]]:[TIME_SLOTS[2],TIME_SLOTS[3]];
+  const nSlots=day==='monday'?2:2;
+
+  const slotBlocks=slotLabels.map((slotLabel,si)=>{
+    const slotGrps=[1,2,3,4].map(niv=>byNiv[niv][si]||null);
+    const grpsHTML=slotGrps.map(g=>{
+      if(!g)return`<div style="background:var(--cream3);border-radius:var(--radius);padding:20px;color:var(--muted);text-align:center;font-size:12px">—</div>`;
+      const cc=NIV_COLORS[g.niveau],prof=state.profMap[g.num]||'(non assigné)';
+      const hi=g.students[0]?.score||0,lo=g.students[g.students.length-1]?.score||0;
+      const avg=g.students.length?Math.round(g.students.reduce((a,s)=>a+s.score,0)/g.students.length):0;
+      const stuRows=g.students.map((s,i)=>`
+        <div class="grp-student" style="${i%2===1?`background:${cc.lt}`:''}">
+          <span class="sn">${i+1}. ${s.nom}</span>
+          <span class="sp">${s.prenom}</span>
+          <span class="sd">${s.dept}</span>
+          <span class="ss">${s.score}</span>
+          <span style="text-align:center">${cecrlBadge(s.cecrl)}</span>
+        </div>`).join('');
+      return`<div class="grp-card">
+        <div class="grp-card-hdr niv-${g.niveau}" style="gap:8px">
+          <div><div style="font-size:13px">${grpCECRL(g)} · ${nivToGr(g.niveau)}</div><div style="font-size:10px;opacity:.8">👤 ${prof} · moy.${avg} · ${g.students.length} ét.</div></div>
+        </div>
+        <div class="grp-score-bar niv-${g.niveau}">${lo} – ${hi} pts</div>
+        <div class="grp-subhdr"><span>NOM</span><span>PRÉNOM</span><span style="text-align:center">DEPT</span><span style="text-align:right">SCORE</span><span style="text-align:center">CECRL</span></div>
+        ${stuRows}
+      </div>`;
+    }).join('');
+    return`<div class="slot-block">
+      <div class="slot-header ${day==='monday'?'slot-lundi':'slot-jeudi'}">⏰ ${slotLabel}</div>
+      <div class="slot-body">${grpsHTML}</div>
+    </div>`;
+  }).join('');
+
+  const isDone=document.getElementById('exportContent');
+  const existing=isDone.querySelector(`[data-day="${day}"]`);
+  const html=`<div data-day="${day}">
+    <div class="section-hdr" style="margin-top:${day==='monday'?'0':'24px'}">
+      <h2 style="color:${day==='monday'?'#1a237e':'#1b5e20'}">${day==='monday'?'🔵':'🟢'} Groupes ${label} — ${state.annee}</h2>
+    </div>
+    ${slotBlocks}
+  </div>`;
+
+  if(existing) existing.outerHTML=html;
+  else isDone.innerHTML=(isDone.querySelector('[data-day]')?isDone.innerHTML:'')+html;
+
+  showTab('export',document.querySelectorAll('.tab-btn')[3]);
+  showAlert(`✅ Export ${label} généré · Suivi profs mis à jour.`,'success');
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SUIVI PROFS
+// ═══════════════════════════════════════════════════════════════════════════════
+function actualiserSuivi() {
+  if(!state.groups.length){showAlert('⚠️ Générer les groupes d\'abord.','warn');return;}
+  computeSlotIdx(state.groups);
+  const ann=state.annee;
+  if(!state.suivi[ann])state.suivi[ann]={};
+
+  // Réinitialiser cette année
+  PROF_NAMES.forEach(p=>{state.suivi[ann][p]={};});
+  Object.entries(state.profMap).forEach(([n,prof])=>{
+    if(!prof)return;
+    const g=state.groups.find(x=>x.num===Number(n));
+    if(!g||g.slotIdx===undefined)return;
+    if(!state.suivi[ann][prof])state.suivi[ann][prof]={};
+    state.suivi[ann][prof][g.slotIdx]=g.niveau;
+  });
+  saveState();
+  renderSuivi();
+}
+
+function renderSuivi() {
+  const el=document.getElementById('suiviContent');
+  const years=Object.keys(state.suivi).sort();
+  if(!years.length){el.innerHTML='<div class="empty-state"><div class="icon">📊</div><h3>Suivi vide</h3><p>Générer les groupes et cliquer "Actualiser".</p></div>';return;}
+
+  const colHdrs=['Professeur',...TIME_SLOTS].map((h,i)=>`<div class="suivi-col-hdr">${h}</div>`).join('');
+
+  const html=years.reverse().map(ann=>{
+    const data=state.suivi[ann]||{};
+    const profRows=PROF_NAMES.map((prof,pi)=>{
+      const slots=data[prof]||{};
+      const cells=[0,1,2,3].map(si=>{
+        const niv=slots[si];
+        if(niv===undefined)return`<div class="suivi-cell empty">—</div>`;
+        const cc=NIV_COLORS[niv];
+        return`<div class="suivi-cell" style="background:${cc.lt};color:${cc.dk}">${nivToGr(niv)}</div>`;
+      }).join('');
+      return`<div class="suivi-prof-name" style="background:${PROF_COLORS[pi]}">${prof}</div>${cells}`;
+    }).join('');
+    return`<div class="suivi-year">
+      <div class="suivi-year-hdr">📅 ${ann}</div>
+      <div class="suivi-grid">${colHdrs}${profRows}</div>
+    </div>`;
+  }).join('');
+
+  el.innerHTML=html;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// LISTINGS TOEIC S7
+// ═══════════════════════════════════════════════════════════════════════════════
+function genererListings() {
+  if(!state.groups.length){showAlert('⚠️ Générer les groupes d\'abord.','error');return;}
+
+  const monSt=state.groups.filter(g=>g.day==='monday').flatMap(g=>g.students).sort((a,b)=>a.score-b.score);
+  const thuSt=state.groups.filter(g=>g.day==='thursday').flatMap(g=>g.students).sort((a,b)=>a.score-b.score);
+
+  const html=`
+    ${buildListingDay(monSt,'Lundi','monday')}
+    ${buildListingDay(thuSt,'Jeudi','thursday')}`;
+
+  document.getElementById('listingsContent').innerHTML=html;
+  showTab('listings',document.querySelectorAll('.tab-btn')[5]);
+  showAlert(`✅ Listings S7 générés — Lundi : ${monSt.length} ét. · Jeudi : ${thuSt.length} ét.`,'success');
+}
+
+function buildListingDay(students,label,day) {
+  const isMonday=day==='monday';
+  let idx=0;
+  const distrib=AMPHIS.map(a=>{
+    const seats=[];
+    for(let i=0;i<a.places&&idx<students.length;i++,idx++){
+      seats.push({...students[idx],seat:i+1});
+    }
+    return{...a,seats};
+  });
+
+  const capLine=distrib.map(a=>`${a.name} : ${a.seats.length}/${a.places}`).join(' · ');
+
+  const amphiCards=distrib.map(a=>{
+    const hi=a.seats.length?a.seats[a.seats.length-1].score:0;
+    const lo=a.seats.length?a.seats[0].score:0;
+    const rows=a.seats.map(s=>`
+      <div class="listing-row">
+        <span class="pl">${s.seat}</span>
+        <span class="ln">${s.nom}</span>
+        <span class="lp">${s.prenom}</span>
+        <span class="ld">${s.dept}</span>
+        <span class="ls">${s.score}</span>
+        <span style="text-align:center">${cecrlBadge(s.cecrl)}</span>
+      </div>`).join('');
+    return`<div class="amphi-card">
+      <div class="amphi-hdr ${a.cls}">
+        <span class="an">🏛️ AMPHI ${a.name.toUpperCase()}</span>
+        <span class="ac">${a.seats.length} / ${a.places} places · ${lo}–${hi} pts</span>
+      </div>
+      <div class="listing-subhdr"><span>N°</span><span>NOM</span><span>PRÉNOM</span><span>DEPT</span><span>SCORE</span><span>CECRL</span></div>
+      ${rows||'<div style="padding:12px;color:var(--muted);text-align:center;font-size:12px">— vide —</div>'}
+    </div>`;
+  }).join('');
+
+  return`<div class="listing-day">
+    <div class="listing-day-hdr ${isMonday?'listing-lundi':'listing-jeudi'}">
+      ${isMonday?'🔵':'🟢'} ${label} — ${students.length} étudiants — ${state.annee}
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px;padding:6px 10px;background:#fff;border-radius:var(--radius);border:1px solid var(--border)">
+      🏛️ ${capLine} — Score le plus faible = place 1
+    </div>
+    <div class="amphi-grid">${amphiCards}</div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// UTILITAIRES
+// ═══════════════════════════════════════════════════════════════════════════════
+function showAlert(msg,type='info') {
+  const div=document.createElement('div');
+  div.className=`alert alert-${type}`;div.textContent=msg;
+  const main=document.querySelector('.main:not([style*="none"])');
+  if(main){main.insertBefore(div,main.firstChild);setTimeout(()=>div.remove(),4000);}
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded',()=>{
+  document.getElementById('anneeSelect').value=state.annee;
+  document.getElementById('anneeSelect').onchange=function(){state.annee=this.value;saveState();};
+  if(state.students.length)renderDataTable();
+  if(state.groups.length)renderGroupes();
+  if(Object.keys(state.suivi).length)renderSuivi();
+});
+</script>
+</body>
+</html>
